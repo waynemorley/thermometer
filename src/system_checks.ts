@@ -44,8 +44,9 @@ export class HealthCheck {
         }
     }
 
-    private getTecTestEvents(startTime: DateTime) {
+    private async getTecTestEvents(startTime: DateTime) {
         startTime = startTime.plus({ seconds: 1 });
+        console.log(`Start time for TEC test events is ${startTime}`);
         const stateEvents: StateEvent[] = [
             {
                 time: startTime.toJSDate(),
@@ -77,8 +78,10 @@ export class HealthCheck {
         return stateEvents;
     }
 
-    private getPumpToggleEvents(startTime: DateTime) {
+    private async getPumpToggleEvents(startTime: DateTime) {
         startTime = startTime.plus({ seconds: 1 });
+        console.log(`Start time for pump toggle events is ${startTime}`);
+
         const stateEvents: StateEvent[] = [
             {
                 time: startTime.toJSDate(),
@@ -159,9 +162,9 @@ export class HealthCheck {
             await Promises.wait(400);
 
             console.log("\nPrime sequence. Toggling pumps...");
-            const stateEvents = this.getPumpToggleEvents(DateTime.utc());
-            this.kelvinApi.putSideStateEvents(this.devId, "left", stateEvents);
-            this.kelvinApi.putSideStateEvents(this.devId, "right", stateEvents);
+            const stateEvents = await this.getPumpToggleEvents(DateTime.utc());
+            await this.kelvinApi.putSideStateEvents(this.devId, "left", stateEvents);
+            await this.kelvinApi.putSideStateEvents(this.devId, "right", stateEvents);
 
             // TODO: check current and voltage of pumps in kibana
         } catch (error) {
@@ -181,9 +184,9 @@ export class HealthCheck {
 
         console.log(`\nTEC test with initial temps ${JSON.stringify(initialTemps)}. Cooling for 60s...`);
 
-        const stateEvents = this.getTecTestEvents(DateTime.utc());
-        this.kelvinApi.putSideStateEvents(this.devId, "left", stateEvents);
-        this.kelvinApi.putSideStateEvents(this.devId, "right", stateEvents);
+        const stateEvents = await this.getTecTestEvents(DateTime.utc());
+        await this.kelvinApi.putSideStateEvents(this.devId, "left", stateEvents);
+        await this.kelvinApi.putSideStateEvents(this.devId, "right", stateEvents);
 
         await Promises.wait(60 * 1000);
 
@@ -222,7 +225,7 @@ export class HealthCheck {
         //     return;
         // }
         const startTime = Math.floor(DateTime.local().valueOf() / 1000.0);
-        await this.primeSequence();
+       // await this.primeSequence();
         // online = await this.online(5);
         // if (!online) {
         //     console.log(`Device ${this.devId} appears to be offline, quitting...`);
