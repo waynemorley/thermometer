@@ -34,16 +34,19 @@
     "all": true
   },
   "devDependencies": {
+    "@types/colors": "^1.2.1",
     "@types/luxon": "^1.12.0",
     "@types/yargs": "^13.0.0",
     "ava": "1.4.1",
     "nyc": "14.0.0",
+    "prettier": "1.17.0",
     "tslint": "5.16.0",
     "typescript": "3.4.5"
   },
   "dependencies": {
     "@eight/practices": "^6.9.20",
     "@eight/promises": "^1.1.0",
+    "colors": "^1.3.3",
     "luxon": "^1.12.1",
     "yargs": "^13.2.2"
   }
