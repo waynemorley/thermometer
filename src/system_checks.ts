@@ -1,5 +1,6 @@
 import { DeviceApi, ClientApi, TempControl } from "@eight/practices";
 import { Promises } from "@eight/promises";
+import { DateTime } from "luxon";
 
 interface SideTemps {
     leftTemp: number;
@@ -44,6 +45,7 @@ export class HealthCheck {
             duration: dur
         };
         await this.deviceApi.setTemp(this.devId, leftSetting);
+
         const rightSetting: TempControl = {
             side: "right",
             level: lev,
@@ -72,7 +74,7 @@ export class HealthCheck {
 
     public async pumpTest() {
         // todo: check voltages and currents in kibana
-        this.primeSequence();
+        await this.primeSequence();
 
         console.log("\nPump test. 5s at ambient...");
         await this.setTemps(0, 5); // ambient for 5 seconds
@@ -91,8 +93,8 @@ export class HealthCheck {
 
         const coolingTemps = await this.getTemps();
         console.log(`\nTEC performance test. End cooling. Left dT: ${initialTemps.leftTemp}->${coolingTemps.leftTemp} C and right dT: ${initialTemps.rightTemp}->${coolingTemps.rightTemp} C`);
-        const coolingLeftdT = initialTemps.leftTemp - coolingTemps.leftTemp;
-        const coolingRightdT = initialTemps.rightTemp - coolingTemps.rightTemp;
+        const coolingLeftdT = (initialTemps.leftTemp - coolingTemps.leftTemp).toFixed(2);
+        const coolingRightdT = (initialTemps.rightTemp - coolingTemps.rightTemp).toFixed(2);
 
         console.log("\nTEC test. Heating for 30s...");
         await this.setTemps(100, 30);
@@ -100,15 +102,18 @@ export class HealthCheck {
 
         const heatingTemps = await this.getTemps();
         console.log(`\nTEC performance test. End heating. Left dT: ${coolingTemps.leftTemp}->${heatingTemps.leftTemp} C and right dT: ${coolingTemps.rightTemp}->${heatingTemps.rightTemp} C`);
-        const heatingLeftdT = coolingTemps.leftTemp - heatingTemps.leftTemp;
-        const heatingRightdT = coolingTemps.rightTemp - heatingTemps.rightTemp;
+        const heatingLeftdT = (coolingTemps.leftTemp - heatingTemps.leftTemp).toFixed(2);
+        const heatingRightdT = (coolingTemps.rightTemp - heatingTemps.rightTemp).toFixed(2);
 
         console.log(`\nTEC results. Cooling dTs L:${coolingLeftdT} and R:${coolingRightdT} (acceptable: [-1,-5]) and heating dTs L:${heatingLeftdT} and R:${heatingRightdT} (acceptable: [1,5])`);
     }
 
     public async run() {
         console.log(`\nRunning health check (priming, pump test, and TECs) on dev ${this.devId}...`);
+        const startTime = DateTime.local().second;
         await this.pumpTest();
         await this.tecTest();
+        const endTime = DateTime.local().second;
+        console.log(`\nFinished running tests in ${endTime - startTime} s`);
     }
 }

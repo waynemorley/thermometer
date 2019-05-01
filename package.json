@@ -34,6 +34,7 @@
     "all": true
   },
   "devDependencies": {
+    "@types/luxon": "^1.12.0",
     "@types/yargs": "^13.0.0",
     "ava": "1.4.1",
     "nyc": "14.0.0",
@@ -43,6 +44,7 @@
   "dependencies": {
     "@eight/practices": "^6.9.20",
     "@eight/promises": "^1.1.0",
+    "luxon": "^1.12.1",
     "yargs": "^13.2.2"
   }
 }
