@@ -34,9 +34,15 @@
     "all": true
   },
   "devDependencies": {
+    "@types/yargs": "^13.0.0",
     "ava": "1.4.1",
     "nyc": "14.0.0",
     "tslint": "5.16.0",
     "typescript": "3.4.5"
+  },
+  "dependencies": {
+    "@eight/practices": "^6.9.20",
+    "@eight/promises": "^1.1.0",
+    "yargs": "^13.2.2"
   }
 }

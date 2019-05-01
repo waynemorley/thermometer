@@ -1,0 +1,9 @@
+node_modules/
+
+# build output
+build/
+test/build/
+
+# coverage output
+.nyc_output/
+coverage/
