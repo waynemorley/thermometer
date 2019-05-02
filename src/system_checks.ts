@@ -183,7 +183,6 @@ export class HealthCheck {
             await this.deviceApi.callFunction(this.devId, "prime", true);
             await Promises.wait(2 * 60 * 1000); // two min
 
-            console.log("\nPrime sequence. Resetting device...");
             await this.deviceApi.callFunction(this.devId, "reset", true);
             await Promises.wait(2 * 1000);
 
