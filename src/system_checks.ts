@@ -213,7 +213,8 @@ export class HealthCheck {
         return true;
     }
 
-    public async tecTest(initialTemps: SideTemps) {
+    public async tecTest() {
+        const initialTemps = await this.getTemps();
         console.log(`\nTEC test with initial temps ${JSON.stringify(initialTemps)}. Cooling for 60s...`);
 
         const stateEvents = await this.getTecTestEvents(DateTime.utc());
@@ -258,7 +259,7 @@ export class HealthCheck {
         await this.primeSequence();
 
         await this.online();
-        const tecPass = await this.tecTest(initialTemps);
+        const tecPass = await this.tecTest();
         const endTime = Math.floor(DateTime.local().valueOf() / 1000.0);
         const runtime = Duration.fromObject({ seconds: endTime - startTime }).as("minutes");
         console.log(`\nFinished running tests in ${runtime.toFixed(2)} minutes`);
