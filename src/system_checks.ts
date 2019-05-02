@@ -29,21 +29,7 @@ export class HealthCheck {
 
         throw new Error(`Invalid level ${level}`);
     }
-/*
-    private async getTemps(): Promise<any> {
-        try {
-            const state = await this.deviceApi.getState(this.devId);
-            const leftT = this.convertTemp((state["heatLevelL"] as any).value as number); // not tgHeatLevelL
-            const rightT = this.convertTemp((state["heatLevelR"] as any).value as number);
-            return {
-                leftTemp: leftT.toFixed(2),
-                rightTemp: rightT.toFixed(2)
-            };
-        } catch (error) {
-            console.log(`Error getting temps: ${error}`);
-        }
-    }
-*/
+
     private async getTemps(): Promise<any> {
         let leftT = -100;
         let rightT = -100;
@@ -250,10 +236,10 @@ export class HealthCheck {
         return this.tecPass(coolingLeftdT, coolingRightdT, heatingLeftdT, heatingRightdT);
     }
 
-    public async run() {
-        const startTime = Math.floor(DateTime.local().valueOf() / 1000.0);
+    public async run(endSn: string) {
         console.log(`\nRunning health check (priming pumps & thermal performance) on dev ${this.devId}. Checking online...`);
         await this.online();
+        const startTime = Math.floor(DateTime.local().valueOf() / 1000.0);
         const initialTemps = await this.getTemps();
         console.log(`Initial temps: ${JSON.stringify(initialTemps)}`);
         await this.primeSequence();
@@ -264,9 +250,13 @@ export class HealthCheck {
         const runtime = Duration.fromObject({ seconds: endTime - startTime }).as("minutes");
         console.log(`\nFinished running tests in ${runtime.toFixed(2)} minutes`);
         if (tecPass) {
-            console.log(colors.green("Test PASS. Next step: factory reset device"));
+            console.log("\n\n");
+            console.log(`${endSn}: ` + colors.green("****Test PASS****") + colors.yellow(" Next step: factory reset device"));
+            console.log("\n\n\n\n");
         } else {
-            console.log(colors.red("Test FAIL. Please try again"));
+            console.log("\n\n");
+            console.log(`${endSn}: ` + colors.red("****Test FAIL****. Please try again"));
+            console.log("\n\n\n\n");
         }
     }
 }

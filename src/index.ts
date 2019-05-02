@@ -11,8 +11,7 @@ const clientApi = new ClientApi(
         type: "session"}
     });
 
-async function getId(devSn: string): Promise<string> {
-    const endSn = devSn.substring(devSn.length - 3);
+async function getId(endSn: string): Promise<string> {
     const email = `mp${endSn}@eightsleep.com`;
     try {
         const user = await clientApi.userGet(email);
@@ -25,9 +24,10 @@ async function getId(devSn: string): Promise<string> {
 
 async function run(args: any) {
     // future: support multiple devices
-    const devId = await getId((args.dev).toString());
+    const endSn = (args.dev).toString().substring((args.dev).toString().length - 3);
+    const devId = await getId(endSn);
     const healthCheck = new HealthCheck(devId, deviceApi);
-    await healthCheck.run();
+    await healthCheck.run(endSn);
 }
 
 yargs
