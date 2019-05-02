@@ -166,6 +166,7 @@ export class HealthCheck {
                 const lastHeard = DateTime.fromISO((state["lastHeard"] as any).value as string).toJSDate();
                 online = DateTime.utc().diff(DateTime.fromJSDate(lastHeard), "minutes").minutes < 2;
                 if (online) {
+                    await Promises.wait(1000);
                     return true;
                 }
             } catch (error) {
