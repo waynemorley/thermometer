@@ -29,11 +29,11 @@ export class HealthCheck {
 
         throw new Error(`Invalid level ${level}`);
     }
-
+/*
     private async getTemps(): Promise<any> {
         try {
             const state = await this.deviceApi.getState(this.devId);
-            const leftT = this.convertTemp((state["heatLevelL"] as any).value as number);
+            const leftT = this.convertTemp((state["heatLevelL"] as any).value as number); // not tgHeatLevelL
             const rightT = this.convertTemp((state["heatLevelR"] as any).value as number);
             return {
                 leftTemp: leftT.toFixed(2),
@@ -43,10 +43,29 @@ export class HealthCheck {
             console.log(`Error getting temps: ${error}`);
         }
     }
+*/
+    private async getTemps(): Promise<any> {
+        let leftT = -100;
+        let rightT = -100;
+        while (leftT === -100 || rightT === -100 || leftT === 100 || rightT === 100) {
+            try {
+                const state = await this.deviceApi.getState(this.devId);
+                leftT = (state["heatLevelL"] as any).value as number;
+                rightT = (state["heatLevelR"] as any).value as number;
+                return {
+                    leftTemp: this.convertTemp(leftT).toFixed(2),
+                    rightTemp: this.convertTemp(rightT).toFixed(2)
+                };
+            } catch (error) {
+                console.log(`Error getting temps: ${error}`);
+            }
+            await Promises.wait(5 * 1000);
+        }
+        return false;
+    }
 
     private async getTecTestEvents(startTime: DateTime) {
         startTime = startTime.plus({ seconds: 1 });
-        console.log(`Start time for TEC test events is ${startTime}`);
         const stateEvents: StateEvent[] = [
             {
                 time: startTime.toJSDate(),
@@ -64,13 +83,23 @@ export class HealthCheck {
             {
                 time: startTime.plus({ seconds: 60 }).toJSDate(),
                 type: "temperatureControl",
+                operation: "off"
+            },
+            {
+                time: startTime.plus({ seconds: 60 + 30 }).toJSDate(),
+                type: "temperatureControl",
+                operation: "on"
+            },
+            {
+                time: startTime.plus({ seconds: 60 + 30 }).toJSDate(),
+                type: "temperatureControl",
                 operation: "temperature",
                 data: {
                     value: 100
                 }
             },
             {
-                time: startTime.plus({ seconds: 60 + 30 }).toJSDate(),
+                time: startTime.plus({ seconds: 60 + 30 + 60 }).toJSDate(),
                 type: "temperatureControl",
                 operation: "off"
             }
@@ -80,8 +109,6 @@ export class HealthCheck {
 
     private async getPumpToggleEvents(startTime: DateTime) {
         startTime = startTime.plus({ seconds: 1 });
-        console.log(`Start time for pump toggle events is ${startTime}`);
-
         const stateEvents: StateEvent[] = [
             {
                 time: startTime.toJSDate(),
@@ -123,30 +150,29 @@ export class HealthCheck {
         return stateEvents;
     }
 
-
     private formatdT(delta: number) {
-        delta = Math.abs(delta);
-        if (delta < 1 || delta > 5) {
+        if (delta < 2) {
             return colors.red(`${delta.toFixed(2)}`);
         } else {
             return colors.green(`${delta.toFixed(2)}`);
         }
     }
 
-    public async online(retries: number) {
-        while (retries > 0) {
+    public async online() {
+        let online = false;
+        while (online === false) {
             try {
-                const status = await this.garbageApi.getDevice(this.devId);
-                console.log(status);
-                if (status.online) {
+                const state = await this.deviceApi.getState(this.devId);
+                const lastHeard = DateTime.fromISO((state["lastHeard"] as any).value as string).toJSDate();
+                online = DateTime.utc().diff(DateTime.fromJSDate(lastHeard), "minutes").minutes < 2;
+                if (online) {
                     return true;
-                } else {
-                    retries = retries - 1;
                 }
             } catch (error) {
                 console.log(`Error getting device state: ${error}`);
-                retries = retries - 1;
             }
+            console.log(`Device offline, trying again in 5 seconds...`);
+            await Promises.wait(5 * 1000);
         }
         return false;
     }
@@ -159,12 +185,14 @@ export class HealthCheck {
 
             console.log("\nPrime sequence. Resetting device...");
             await this.deviceApi.callFunction(this.devId, "reset", true);
-            await Promises.wait(400);
+            await Promises.wait(2 * 1000);
 
             console.log("\nPrime sequence. Toggling pumps...");
             const stateEvents = await this.getPumpToggleEvents(DateTime.utc());
             await this.kelvinApi.putSideStateEvents(this.devId, "left", stateEvents);
             await this.kelvinApi.putSideStateEvents(this.devId, "right", stateEvents);
+
+            await Promises.wait(20 * 1000);
 
             // TODO: check current and voltage of pumps in kibana
         } catch (error) {
@@ -174,21 +202,19 @@ export class HealthCheck {
 
     private tecPass(...deltas: number[]) {
         for (const delta of deltas) {
-            if (Math.abs(delta) < 1 || Math.abs(delta) > 5) return false;
+            if (delta < 2) return false;
         }
         return true;
     }
 
-    public async tecTest() {
-        const initialTemps = await this.getTemps();
-
+    public async tecTest(initialTemps: SideTemps) {
         console.log(`\nTEC test with initial temps ${JSON.stringify(initialTemps)}. Cooling for 60s...`);
 
         const stateEvents = await this.getTecTestEvents(DateTime.utc());
         await this.kelvinApi.putSideStateEvents(this.devId, "left", stateEvents);
         await this.kelvinApi.putSideStateEvents(this.devId, "right", stateEvents);
 
-        await Promises.wait(60 * 1000);
+        await Promises.wait(90 * 1000);
 
         const coolingTemps = await this.getTemps();
         console.log(`\nTEC performance test. End cooling. Left: ${initialTemps.leftTemp}->${coolingTemps.leftTemp} C and right: ${initialTemps.rightTemp}->${coolingTemps.rightTemp} C`
@@ -198,8 +224,8 @@ export class HealthCheck {
         console.log(`\nTEC performance test results. Left dT: ${this.formatdT(coolingLeftdT)} and right dT: ${this.formatdT(coolingRightdT)}`
         );
 
-        console.log("\nTEC test. Heating for 30s...");
-        await Promises.wait(30 * 1000);
+        console.log("\nTEC test. Heating for 60s...");
+        await Promises.wait(90 * 1000);
 
         const heatingTemps = await this.getTemps();
         console.log(
@@ -218,20 +244,14 @@ export class HealthCheck {
     }
 
     public async run() {
-        console.log(`\nRunning health check (priming pumps & thermal performance) on dev ${this.devId}...`);
-        // let online = await this.online(5);
-        // if (!online) {
-        //     console.log(`Device ${this.devId} appears to be offline, quitting...`);
-        //     return;
-        // }
+        console.log(`\nRunning health check (priming pumps & thermal performance) on dev ${this.devId}. Checking online...`);
+        await this.online();
         const startTime = Math.floor(DateTime.local().valueOf() / 1000.0);
-       // await this.primeSequence();
-        // online = await this.online(5);
-        // if (!online) {
-        //     console.log(`Device ${this.devId} appears to be offline, quitting...`);
-        //     return;
-        // }
-        const tecPass = await this.tecTest();
+        const initialTemps = await this.getTemps();
+        await this.primeSequence();
+
+        await this.online();
+        const tecPass = await this.tecTest(initialTemps);
         const endTime = Math.floor(DateTime.local().valueOf() / 1000.0);
         const runtime = Duration.fromObject({ seconds: endTime - startTime }).as("minutes");
         console.log(`\nFinished running tests in ${runtime.toFixed(2)} minutes`);
