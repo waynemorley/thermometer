@@ -185,7 +185,7 @@ export class HealthCheck {
             await Promises.wait(2 * 60 * 1000); // two min
 
             await this.deviceApi.callFunction(this.devId, "reset", true);
-            await Promises.wait(2 * 1000);
+            await Promises.wait(10 * 1000);
 
             console.log("\nPrime sequence. Toggling pumps...");
             const stateEvents = await this.getPumpToggleEvents(DateTime.utc());
