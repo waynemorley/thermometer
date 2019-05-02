@@ -47,19 +47,25 @@ export class HealthCheck {
     private async getTemps(): Promise<any> {
         let leftT = -100;
         let rightT = -100;
-        while (leftT === -100 || rightT === -100 || leftT === 100 || rightT === 100) {
+        let badTemps = true;
+        while (badTemps) {
             try {
                 const state = await this.deviceApi.getState(this.devId);
                 leftT = (state["heatLevelL"] as any).value as number;
                 rightT = (state["heatLevelR"] as any).value as number;
-                return {
-                    leftTemp: this.convertTemp(leftT).toFixed(2),
-                    rightTemp: this.convertTemp(rightT).toFixed(2)
-                };
+                if (leftT != -100 && rightT != -100 && leftT != 100 && rightT != 100) {
+                    badTemps = false;
+                    return {
+                        leftTemp: this.convertTemp(leftT).toFixed(2),
+                        rightTemp: this.convertTemp(rightT).toFixed(2)
+                    };
+                }
             } catch (error) {
-                console.log(`Error getting temps: ${error}`);
+                console.log(`Error getting temps: ${error}. Trying again in 5s...`);
+                await Promises.wait(5 * 1000);
             }
-            await Promises.wait(5 * 1000);
+            console.log(`Got invalid temp levels, trying again in 10s...`);
+            await Promises.wait(10 * 1000);
         }
         return false;
     }
@@ -248,6 +254,7 @@ export class HealthCheck {
         console.log(`\nRunning health check (priming pumps & thermal performance) on dev ${this.devId}. Checking online...`);
         await this.online();
         const initialTemps = await this.getTemps();
+        console.log(`Initial temps: ${JSON.stringify(initialTemps)}`);
         await this.primeSequence();
 
         await this.online();
