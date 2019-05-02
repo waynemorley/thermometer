@@ -244,9 +244,9 @@ export class HealthCheck {
     }
 
     public async run() {
+        const startTime = Math.floor(DateTime.local().valueOf() / 1000.0);
         console.log(`\nRunning health check (priming pumps & thermal performance) on dev ${this.devId}. Checking online...`);
         await this.online();
-        const startTime = Math.floor(DateTime.local().valueOf() / 1000.0);
         const initialTemps = await this.getTemps();
         await this.primeSequence();
 
@@ -258,7 +258,7 @@ export class HealthCheck {
         if (tecPass) {
             console.log(colors.green("Test PASS. Next step: factory reset device"));
         } else {
-            console.log(colors.red("Test FAIL. Please fill with water and try again"));
+            console.log(colors.red("Test FAIL. Please try again"));
         }
     }
 }
