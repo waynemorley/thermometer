@@ -184,6 +184,17 @@ export class HealthCheck {
         return false;
     }
 
+    public async isLatestFw(latestFw: string) {
+        try {
+            const state = await this.deviceApi.getState(this.devId);
+            const fwVersion = (state["firmwareVersion"] as any).value as string;
+            if (fwVersion === latestFw) return true;
+        } catch (error) {
+            this.log(`Error getting device state: ${error}`);
+        }
+        return false;
+    }
+
     public async primeSequence() {
         this.log("Beginning short prime sequence. Priming for 2 minutes...");
         try {
@@ -264,6 +275,8 @@ export class HealthCheck {
                 `Running health check (priming pumps & thermal performance) on dev ${this.devId}. Checking online...`
             );
             await this.online();
+            const isLatestFw = await this.isLatestFw("2.2.22.0");
+            if (!isLatestFw) { throw new Error("Device firmware out of date"); }
             const startTime = Math.floor(DateTime.local().valueOf() / 1000.0);
             const initialTemps = await this.getTemps();
             this.log(`Initial temps: ${JSON.stringify(initialTemps)}`);
