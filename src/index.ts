@@ -12,8 +12,7 @@ const clientApi = new ClientApi(
         type: "session"}
     });
 
-async function getId(devSn: string): Promise<string> {
-    const endSn = devSn.substring(devSn.length - 3);
+async function getId(endSn: string): Promise<string> {
     const email = `mp${endSn}@eightsleep.com`;
     try {
         const user = await clientApi.userGet(email);
