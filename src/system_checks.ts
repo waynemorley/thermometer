@@ -1,24 +1,39 @@
-import { DeviceApi, GarbageApi, TempControl, KelvinApi, StateEvent } from "@eight/practices";
+import { DeviceApi, KelvinApi, StateEvent } from "@eight/practices";
 import { Promises } from "@eight/promises";
 import { DateTime, Duration } from "luxon";
 import * as colors from "colors";
+import { retry } from "./utilities";
 
 interface SideTemps {
     leftTemp: number;
     rightTemp: number;
 }
 
-export class HealthCheck {
-    private devId: string;
-    private deviceApi: DeviceApi;
-    private garbageApi: GarbageApi;
-    private kelvinApi: KelvinApi;
+const twoMinutes = 2 * 60 * 1000;
 
-    constructor(devId: string, deviceApi: DeviceApi) {
-        this.devId = devId;
-        this.deviceApi = deviceApi;
-        this.garbageApi = new GarbageApi();
-        this.kelvinApi = new KelvinApi();
+function nl(count: number) {
+    return "\n".repeat(count);
+}
+
+function isValidTemp(temp: number) {
+    return temp !== -100 && temp !== 100;
+}
+
+function round(value: number, digits: number) {
+    const exp = Math.pow(10, digits);
+    return Math.round(value * exp) / exp;
+}
+
+export class HealthCheck {
+    constructor(
+        private readonly serialNumber: string,
+        private readonly devId: string,
+        private readonly deviceApi: DeviceApi,
+        private readonly kelvinApi: KelvinApi
+    ) {}
+
+    private log(message: string) {
+        console.log(`\n${colors.bgBlue.white(this.serialNumber)}:`, message);
     }
 
     private convertTemp(level: number) {
@@ -30,30 +45,23 @@ export class HealthCheck {
         throw new Error(`Invalid level ${level}`);
     }
 
-    private async getTemps(): Promise<any> {
-        let leftT = -100;
-        let rightT = -100;
-        let badTemps = true;
-        while (badTemps) {
-            try {
+    private async getTemps(): Promise<SideTemps> {
+        return await retry(
+            async () => {
                 const state = await this.deviceApi.getState(this.devId);
-                leftT = (state["heatLevelL"] as any).value as number;
-                rightT = (state["heatLevelR"] as any).value as number;
-                if (leftT != -100 && rightT != -100 && leftT != 100 && rightT != 100) {
-                    badTemps = false;
-                    return {
-                        leftTemp: this.convertTemp(leftT).toFixed(2),
-                        rightTemp: this.convertTemp(rightT).toFixed(2)
-                    };
-                }
-            } catch (error) {
-                console.log(`Error getting temps: ${error}. Trying again in 5s...`);
-                await Promises.wait(5 * 1000);
-            }
-            console.log(`Got invalid temp levels, trying again in 10s...`);
-            await Promises.wait(10 * 1000);
-        }
-        return false;
+                const leftT = (state["heatLevelL"] as any).value as number;
+                const rightT = (state["heatLevelR"] as any).value as number;
+
+                if (!isValidTemp(leftT) || !isValidTemp(rightT)) throw new Error("got invalid temp levels");
+
+                return {
+                    leftTemp: round(this.convertTemp(leftT), 2),
+                    rightTemp: round(this.convertTemp(rightT), 2)
+                };
+            },
+            8,
+            10 * 1000
+        );
     }
 
     private async getTecTestEvents(startTime: DateTime) {
@@ -151,6 +159,7 @@ export class HealthCheck {
     }
 
     public async online() {
+        const startTime = new Date();
         let online = false;
         while (online === false) {
             try {
@@ -162,24 +171,29 @@ export class HealthCheck {
                     return true;
                 }
             } catch (error) {
-                console.log(`Error getting device state: ${error}`);
+                this.log(`Error getting device state: ${error}`);
             }
-            console.log(`Device offline, trying again in 5 seconds...`);
+
+            const elapsedMs = new Date().valueOf() - startTime.valueOf();
+            if (elapsedMs > twoMinutes) throw new Error("device never online");
+
+            this.log(`Device offline, trying again in 5 seconds...`);
             await Promises.wait(5 * 1000);
         }
+
         return false;
     }
 
     public async primeSequence() {
-        console.log("\nBeginning short prime sequence. Priming for 2 minutes...");
+        this.log("Beginning short prime sequence. Priming for 2 minutes...");
         try {
             await this.deviceApi.callFunction(this.devId, "prime", true);
-            await Promises.wait(2 * 60 * 1000); // two min
+            await Promises.wait(twoMinutes);
 
             await this.deviceApi.callFunction(this.devId, "reset", true);
             await Promises.wait(10 * 1000);
 
-            console.log("\nPrime sequence. Toggling pumps...");
+            this.log("Prime sequence. Toggling pumps...");
             const stateEvents = await this.getPumpToggleEvents(DateTime.utc());
             await this.kelvinApi.putSideStateEvents(this.devId, "left", stateEvents);
             await this.kelvinApi.putSideStateEvents(this.devId, "right", stateEvents);
@@ -188,7 +202,7 @@ export class HealthCheck {
 
             // TODO: check current and voltage of pumps in kibana
         } catch (error) {
-            console.log(`\nPrime sequence stopped due to error ${error}`);
+            this.log(`Prime sequence stopped due to error ${error}`);
         }
     }
 
@@ -201,7 +215,7 @@ export class HealthCheck {
 
     public async tecTest() {
         const initialTemps = await this.getTemps();
-        console.log(`\nTEC test with initial temps ${JSON.stringify(initialTemps)}. Cooling for 60s...`);
+        this.log(`TEC test with initial temps ${JSON.stringify(initialTemps)}. Cooling for 60s...`);
 
         const stateEvents = await this.getTecTestEvents(DateTime.utc());
         await this.kelvinApi.putSideStateEvents(this.devId, "left", stateEvents);
@@ -210,53 +224,67 @@ export class HealthCheck {
         await Promises.wait(90 * 1000);
 
         const coolingTemps = await this.getTemps();
-        console.log(`\nTEC performance test. End cooling. Left: ${initialTemps.leftTemp}->${coolingTemps.leftTemp} C and right: ${initialTemps.rightTemp}->${coolingTemps.rightTemp} C`
+        this.log(
+            `TEC performance test. End cooling. Left: ${initialTemps.leftTemp}->${coolingTemps.leftTemp} C and right: ${
+                initialTemps.rightTemp
+            }->${coolingTemps.rightTemp} C`
         );
         const coolingLeftdT = initialTemps.leftTemp - coolingTemps.leftTemp;
         const coolingRightdT = initialTemps.rightTemp - coolingTemps.rightTemp;
-        console.log(`\nTEC performance test results. Left dT: ${this.formatdT(coolingLeftdT)} and right dT: ${this.formatdT(coolingRightdT)}`
+        this.log(
+            `TEC performance test results. Left dT: ${this.formatdT(coolingLeftdT)} and right dT: ${this.formatdT(
+                coolingRightdT
+            )}`
         );
 
-        console.log("\nTEC test. Heating for 60s...");
+        this.log("TEC test. Heating for 60s...");
         await Promises.wait(90 * 1000);
 
         const heatingTemps = await this.getTemps();
-        console.log(
-            `\nTEC performance test. End heating. Left: ${coolingTemps.leftTemp}->${
-                heatingTemps.leftTemp
-            } C and right: ${coolingTemps.rightTemp}->${heatingTemps.rightTemp} C`
+        this.log(
+            `TEC performance test. End heating. Left: ${coolingTemps.leftTemp}->${heatingTemps.leftTemp} C and right: ${
+                coolingTemps.rightTemp
+            }->${heatingTemps.rightTemp} C`
         );
         const heatingLeftdT = heatingTemps.leftTemp - coolingTemps.leftTemp;
         const heatingRightdT = heatingTemps.rightTemp - coolingTemps.rightTemp;
-        console.log(
-            `\nTEC performance test results. Left dT: ${this.formatdT(heatingLeftdT)} and right dT: ${this.formatdT(
+        this.log(
+            `TEC performance test results. Left dT: ${this.formatdT(heatingLeftdT)} and right dT: ${this.formatdT(
                 heatingRightdT
             )}`
         );
         return this.tecPass(coolingLeftdT, coolingRightdT, heatingLeftdT, heatingRightdT);
     }
 
-    public async run(endSn: string) {
-        console.log(`\nRunning health check (priming pumps & thermal performance) on dev ${this.devId}. Checking online...`);
-        await this.online();
-        const startTime = Math.floor(DateTime.local().valueOf() / 1000.0);
-        const initialTemps = await this.getTemps();
-        console.log(`Initial temps: ${JSON.stringify(initialTemps)}`);
-        await this.primeSequence();
+    public async run(): Promise<boolean> {
+        try {
+            this.log(
+                `Running health check (priming pumps & thermal performance) on dev ${this.devId}. Checking online...`
+            );
+            await this.online();
+            const startTime = Math.floor(DateTime.local().valueOf() / 1000.0);
+            const initialTemps = await this.getTemps();
+            this.log(`Initial temps: ${JSON.stringify(initialTemps)}`);
+            await this.primeSequence();
 
-        await this.online();
-        const tecPass = await this.tecTest();
-        const endTime = Math.floor(DateTime.local().valueOf() / 1000.0);
-        const runtime = Duration.fromObject({ seconds: endTime - startTime }).as("minutes");
-        console.log(`\nFinished running tests in ${runtime.toFixed(2)} minutes`);
-        if (tecPass) {
-            console.log("\n\n");
-            console.log(`${endSn}: ` + colors.green("****Test PASS****") + colors.yellow(" Next step: factory reset device"));
-            console.log("\n\n\n\n");
-        } else {
-            console.log("\n\n");
-            console.log(`${endSn}: ` + colors.red("****Test FAIL****. Please try again"));
-            console.log("\n\n\n\n");
+            await this.online();
+            const tecPass = await this.tecTest();
+            const endTime = Math.floor(DateTime.local().valueOf() / 1000.0);
+            const runtime = Duration.fromObject({ seconds: endTime - startTime }).as("minutes");
+            this.log(`Finished running tests in ${runtime.toFixed(2)} minutes`);
+            if (tecPass) {
+                this.log(
+                    colors.bgGreen.white(nl(4) + "****Test PASS****") +
+                        colors.yellow(" Next step: factory reset device") +
+                        nl(4)
+                );
+                return true;
+            }
+        } catch (err) {
+            this.log("ERROR " + err);
         }
+
+        this.log(colors.bgRed.white(nl(4) + "****Test FAIL****. Please try again") + nl(4));
+        return false;
     }
 }

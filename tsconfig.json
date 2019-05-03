@@ -3,7 +3,7 @@
         "declaration": true,
         "emitDecoratorMetadata": true,
         "experimentalDecorators": true,
-        "lib": [ "es2017" ],
+        "lib": [ "es2018" ],
         "module": "commonjs",
         "noFallthroughCasesInSwitch": true,
         "noImplicitReturns": true,
@@ -11,7 +11,7 @@
         "rootDir": "./src/",
         "sourceMap": true,
         "strict": true,
-        "target": "es2017"
+        "target": "es2018"
     },
     "include": [
         "src"

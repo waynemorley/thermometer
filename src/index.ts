@@ -1,38 +1,63 @@
 process.env["SUPPRESS_NO_CONFIG_WARNING"] = "true";
 
-import { DeviceApi, ClientApi, Tokens } from "@eight/practices";
-import * as yargs from "yargs";
+import { DeviceApi, KelvinApi } from "@eight/practices";
 import { HealthCheck } from "./system_checks";
-import { connect } from "./device";
+import { Device } from "./device";
+import { createInterface, Interface } from "readline";
+import * as colors from "colors";
 
 const deviceApi = new DeviceApi();
-const clientApi = new ClientApi(
-    { token:
-        { token: "cf9371ebd99a44bfa8ce6c521045d7b2-99f976f3935fec39d5e1890e5eec12f6",
-        type: "session"}
-    });
+const kelvinApi = new KelvinApi();
 
-async function getId(endSn: string): Promise<string> {
-    const email = `mp${endSn}@eightsleep.com`;
+const device = new Device();
+
+const passedSerials = new Map<string, boolean>();
+
+async function testDevice(serialNumber: string) {
     try {
-        const user = await clientApi.userGet(email);
-        return user.devices[0];
-    } catch (error) {
-        console.log(`got error ${error}`);
-        return "fail";
+        passedSerials.set(serialNumber, false);
+        const deviceId = await device.connectAndGetId("Knotel", "hellohello");
+
+        const healthCheck = new HealthCheck(serialNumber, deviceId, deviceApi, kelvinApi);
+        const passed = await healthCheck.run();
+        if (passed) passedSerials.set(serialNumber, true);
+        else passedSerials.delete(serialNumber);
+    } catch (err) {
+        console.log("FAIL", err);
+        passedSerials.delete(serialNumber);
     }
 }
 
-async function run(args: any) {
-    // future: support multiple devices
-  //  const devId = await getId((args.dev).toString());
-  //  const healthCheck = new HealthCheck(devId, deviceApi);
-   // await healthCheck.run();
-    await connect();
+function readLine(int: Interface): Promise<string> {
+    return new Promise(res => int.once("line", line => res(line)));
 }
 
-yargs
-    .demandOption(["dev"])
-    .argv;
+function isValidSerial(text: string) {
+    return text.length > 5;
+}
 
-run(yargs.argv);
+async function run() {
+    const int = createInterface({ input: process.stdin, output: process.stdout, terminal: false });
+
+    while (true) {
+        const serialNumber = await readLine(int);
+        if (!isValidSerial(serialNumber)) {
+            console.log("invalid serial");
+            continue;
+        }
+
+        const passed = passedSerials.get(serialNumber);
+        if (passed !== undefined) {
+            if (passed) console.log(colors.bgGreen.white(`\n\n\n\n     DEVICE ${serialNumber} PASSED THE TEST     \n\n\n`));
+            else console.log(`DEVICE ${serialNumber} is being tested`);
+            continue;
+        }
+
+        testDevice(serialNumber);
+    }
+    // future: support multiple devices
+}
+
+// yargs.demandOption(["dev"]).argv;
+
+run();
