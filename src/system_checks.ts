@@ -77,7 +77,7 @@ export class HealthCheck {
                 type: "temperatureControl",
                 operation: "temperature",
                 data: {
-                    value: -100
+                    value: 100
                 }
             },
             {
@@ -95,7 +95,7 @@ export class HealthCheck {
                 type: "temperatureControl",
                 operation: "temperature",
                 data: {
-                    value: 100
+                    value: -100
                 }
             },
             {
@@ -215,7 +215,7 @@ export class HealthCheck {
 
     public async tecTest() {
         const initialTemps = await this.getTemps();
-        this.log(`TEC test with initial temps ${JSON.stringify(initialTemps)}. Cooling for 60s...`);
+        this.log(`TEC test with initial temps ${JSON.stringify(initialTemps)}. Heating for 60s...`);
 
         const stateEvents = await this.getTecTestEvents(DateTime.utc());
         await this.kelvinApi.putSideStateEvents(this.devId, "left", stateEvents);
@@ -223,34 +223,34 @@ export class HealthCheck {
 
         await Promises.wait(90 * 1000);
 
-        const coolingTemps = await this.getTemps();
-        this.log(
-            `TEC performance test. End cooling. Left: ${initialTemps.leftTemp}->${coolingTemps.leftTemp} C and right: ${
-                initialTemps.rightTemp
-            }->${coolingTemps.rightTemp} C`
-        );
-        const coolingLeftdT = initialTemps.leftTemp - coolingTemps.leftTemp;
-        const coolingRightdT = initialTemps.rightTemp - coolingTemps.rightTemp;
-        this.log(
-            `TEC performance test results. Left dT: ${this.formatdT(coolingLeftdT)} and right dT: ${this.formatdT(
-                coolingRightdT
-            )}`
-        );
-
-        this.log("TEC test. Heating for 60s...");
-        await Promises.wait(90 * 1000);
-
         const heatingTemps = await this.getTemps();
         this.log(
-            `TEC performance test. End heating. Left: ${coolingTemps.leftTemp}->${heatingTemps.leftTemp} C and right: ${
-                coolingTemps.rightTemp
+            `TEC performance test. End heating. Left: ${initialTemps.leftTemp}->${heatingTemps.leftTemp} C and right: ${
+                initialTemps.rightTemp
             }->${heatingTemps.rightTemp} C`
         );
-        const heatingLeftdT = heatingTemps.leftTemp - coolingTemps.leftTemp;
-        const heatingRightdT = heatingTemps.rightTemp - coolingTemps.rightTemp;
+        const heatingLeftdT = heatingTemps.leftTemp - initialTemps.leftTemp;
+        const heatingRightdT = heatingTemps.rightTemp - initialTemps.rightTemp;
         this.log(
             `TEC performance test results. Left dT: ${this.formatdT(heatingLeftdT)} and right dT: ${this.formatdT(
                 heatingRightdT
+            )}`
+        );
+
+        this.log("TEC test. Cooling for 60s...");
+        await Promises.wait(90 * 1000);
+
+        const coolingTemps = await this.getTemps();
+        this.log(
+            `TEC performance test. End cooling. Left: ${heatingTemps.leftTemp}->${coolingTemps.leftTemp} C and right: ${
+                heatingTemps.rightTemp
+            }->${coolingTemps.rightTemp} C`
+        );
+        const coolingLeftdT = heatingTemps.leftTemp - coolingTemps.leftTemp;
+        const coolingRightdT = heatingTemps.rightTemp - coolingTemps.rightTemp;
+        this.log(
+            `TEC performance test results. Left dT: ${this.formatdT(coolingLeftdT)} and right dT: ${this.formatdT(
+                coolingRightdT
             )}`
         );
         return this.tecPass(coolingLeftdT, coolingRightdT, heatingLeftdT, heatingRightdT);
