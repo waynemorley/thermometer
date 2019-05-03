@@ -1,7 +1,7 @@
 import { Socket } from "net";
 import { Promises } from "@eight/promises";
 import * as joi from "types-joi";
-import { createPublicKey, publicEncrypt, getCiphers, KeyObject } from "crypto";
+import { createPublicKey, publicEncrypt, KeyObject } from "crypto";
 import { RSA_PKCS1_PADDING } from "constants";
 import { retry } from "./utilities";
 
@@ -197,15 +197,5 @@ export class Device {
         await this.connectToNetwork();
 
         return deviceId;
-    }
-}
-
-export async function connect() {
-    try {
-        const device = new Device();
-        const deviceId = await retry(() => device.connectAndGetId("Knotel", "hellohello"), 3);
-        console.log("deviceId", deviceId);
-    } catch (err) {
-        console.log("fail", err);
     }
 }
