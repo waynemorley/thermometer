@@ -4,6 +4,16 @@ import * as joi from "types-joi";
 
 const deviceIdSchema = joi.object({ id: joi.string().required(), c: joi.string() });
 const publicKeySchema = joi.object({ r: joi.number().valid(0 as const).required(), b: joi.string().required() });
+const wifiNetworkSchema = joi.object({
+    ssid: joi.string().required(),
+    sec: joi.number().required(), // security type
+    ch: joi.number().required(), // channel
+    rssi: joi.number().required(), // signal strength
+    sumSignal: joi.number().required(),
+    count: joi.number().required(),
+    avgSignal: joi.number().required() // signal strength
+});
+const wifiNetworkListSchema = joi.array().items(wifiNetworkSchema);
 
 async function socketConnect(host: string, port: number): Promise<Socket> {
     const socket = new Socket();
@@ -72,19 +82,34 @@ class Device {
         const resp = await this.get({ name: "public-key" }, publicKeySchema.required());
         return resp.b;
     }
+
+    public async scanAP() {
+        return (await this.get({ name: "scan-ap" }, wifiNetworkListSchema.required()));
+    }
+
+    // public async configureAP(wifiNetwork: wifiNetworkSchema) {
+
+    // }
+
+    // public async connectAP() {
+
+    // }
 }
 
-(async () => {
+export async function connect() {
     try {
         const device = new Device("192.168.0.1", 5609);
         const deviceId = await device.getDeviceId();
-
+        console.log("Device ID", deviceId);
         const pubKey = await device.getPublicKey();
+
+        const networks = await device.scanAP();
 
         console.log("PUB KEY", pubKey);
 
         console.log("connected");
+        console.log(networks);
     } catch (err) {
         console.log("fail", err);
     }
-})();
+}

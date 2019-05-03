@@ -3,6 +3,7 @@ process.env["SUPPRESS_NO_CONFIG_WARNING"] = "true";
 import { DeviceApi, ClientApi, Tokens } from "@eight/practices";
 import * as yargs from "yargs";
 import { HealthCheck } from "./system_checks";
+import { connect } from "./device";
 
 const deviceApi = new DeviceApi();
 const clientApi = new ClientApi(
@@ -25,9 +26,10 @@ async function getId(devSn: string): Promise<string> {
 
 async function run(args: any) {
     // future: support multiple devices
-    const devId = await getId((args.dev).toString());
-    const healthCheck = new HealthCheck(devId, deviceApi);
-    await healthCheck.run();
+  //  const devId = await getId((args.dev).toString());
+  //  const healthCheck = new HealthCheck(devId, deviceApi);
+   // await healthCheck.run();
+    await connect();
 }
 
 yargs
