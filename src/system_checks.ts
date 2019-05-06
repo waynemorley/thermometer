@@ -261,7 +261,7 @@ export class HealthCheck {
         return this.tecPass(coolingLeftdT, coolingRightdT, heatingLeftdT, heatingRightdT);
     }
 
-    public async run(): Promise<boolean> {
+    private async runCheck(): Promise<boolean> {
         try {
             this.log(
                 `Running health check (priming pumps & thermal performance) on dev ${this.deviceId}. Checking online...`
@@ -278,15 +278,35 @@ export class HealthCheck {
             const endTime = Math.floor(DateTime.local().valueOf() / 1000.0);
             const runtime = Duration.fromObject({ seconds: endTime - startTime }).as("minutes");
             this.log(`Finished running tests in ${runtime.toFixed(2)} minutes`);
-            if (tecPass) {
-                this.log(colors.bgGreen.white("****Test PASS****") + colors.yellow(" Next step: factory reset device"));
-                return true;
-            }
+            if (tecPass) return true;
         } catch (err) {
             this.log("ERROR " + err);
         }
 
-        this.log(colors.bgRed.white("****Test FAIL****. Please try again"));
         return false;
+    }
+
+    public async run(): Promise<boolean> {
+        let retries = 3;
+        let testPass = false;
+        while (retries > 0 && !testPass) {
+            try {
+                retries--;
+                testPass = await this.runCheck();
+            } catch (err) {
+                this.log("ERROR " + err);
+            }
+            await Promises.wait(60 * 1000);
+        }
+
+        if (testPass) {
+            this.log(
+                colors.bgGreen.white("****Test PASS****") + colors.yellow(`with ${retries} retries left. Next step: factory reset device`)
+            );
+            return true;
+        } else {
+            this.log(colors.bgRed.white("****Test FAIL**** after 3 retries"));
+            return false;
+        }
     }
 }

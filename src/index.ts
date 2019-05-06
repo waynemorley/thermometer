@@ -48,14 +48,14 @@ async function run() {
 
         const passed = passedSerials.get(serialNumber);
         if (passed !== undefined) {
-            if (passed) console.log(colors.bgGreen.white(`\n\n\n\n     DEVICE ${serialNumber} PASSED THE TEST     \n\n\n`));
+            if (passed)
+                console.log(colors.bgGreen.white(`\n\n\n\n     DEVICE ${serialNumber} PASSED THE TEST     \n\n\n`));
             else console.log(`DEVICE ${serialNumber} is being tested`);
             continue;
         }
 
         testDevice(serialNumber);
     }
-    // future: support multiple devices
 }
 
 // yargs.demandOption(["dev"]).argv;
