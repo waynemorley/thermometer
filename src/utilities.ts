@@ -33,7 +33,7 @@ export async function retry<T>(func: () => Promise<T>, options: Options): Promis
             attempts++;
             return await func();
         } catch (err) {
-            if (!shouldContinue) throw err;
+            if (!shouldContinue()) throw err;
             await Promises.wait(sleep);
         }
     }
