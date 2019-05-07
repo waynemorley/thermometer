@@ -5,6 +5,7 @@ import { HealthCheck } from "./system_checks";
 import { Device } from "./device";
 import { createInterface, Interface } from "readline";
 import * as colors from "colors";
+import { spreadsheetTest } from "./spreadsheet";
 
 const deviceApi = new DeviceApi();
 const kelvinApi = new KelvinApi();
@@ -37,7 +38,7 @@ function isValidSerial(text: string) {
 }
 
 async function run() {
-    const int = createInterface({ input: process.stdin, output: process.stdout, terminal: false });
+    /*const int = createInterface({ input: process.stdin, output: process.stdout, terminal: false });
 
     while (true) {
         const serialNumber = await readLine(int);
@@ -54,8 +55,8 @@ async function run() {
         }
 
         testDevice(serialNumber);
-    }
-    // future: support multiple devices
+    }*/
+    spreadsheetTest();
 }
 
 // yargs.demandOption(["dev"]).argv;
