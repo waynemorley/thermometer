@@ -190,8 +190,10 @@ export class HealthCheck {
             await retry(
                 async () => {
                     const stateEvents = this.getPumpToggleEvents(DateTime.utc());
-                    await this.kelvinApi.putSideStateEvents(this.deviceId, "left", stateEvents);
-                    await this.kelvinApi.putSideStateEvents(this.deviceId, "right", stateEvents);
+                    await Promise.all([
+                        this.kelvinApi.putSideStateEvents(this.deviceId, "left", stateEvents),
+                        this.kelvinApi.putSideStateEvents(this.deviceId, "right", stateEvents)
+                    ]);
                 },
                 { timeoutMs: twoMinutes }
             );
@@ -301,7 +303,8 @@ export class HealthCheck {
 
         if (testPass) {
             this.log(
-                colors.bgGreen.white("****Test PASS****") + colors.yellow(`with ${retries} retries left. Next step: factory reset device`)
+                colors.bgGreen.white("****Test PASS****") +
+                    colors.yellow(`with ${retries} retries left. Next step: factory reset device`)
             );
             return true;
         } else {

@@ -10,40 +10,54 @@ import { Promises } from "@eight/promises";
 import { retry } from "./utilities";
 import yargs = require("yargs");
 
-const deviceApi = new DeviceApi();
-const kelvinApi = new KelvinApi();
 
 const device = new Device();
 
 const passedSerials = new Map<string, boolean>();
 
-let networkManager: UbuntuNM | undefined = undefined;
+let wifi: Wifi | undefined = undefined;
 
-async function tryWifiConnect() {
-    if (networkManager === undefined) return;
+class Wifi {
+    public constructor(private readonly nm: UbuntuNM) {}
 
-    console.log("listing networks...");
-    const scanResult = await networkManager.device.wifi.list();
-    const targetNetwork = scanResult.find(r => r.SSID.startsWith("Eight-"));
-    if (!targetNetwork) throw new Error("not found");
+    public async waitForConnection(ssid: string) {
+        await retry(
+            async () => {
+                const status = await this.nm.device.status();
+                const wifiStatus = status.find(d => d.TYPE === "wifi");
+                if (!wifiStatus) throw new Error("wifi device not found");
 
-    const ssid = targetNetwork.SSID;
-    console.log(`network found ${ssid}, connecting...`);
-    await networkManager.device.wifi.connect(ssid);
-    console.log(`connecting to network ${ssid}`);
-}
+                if (wifiStatus.STATE !== "connected" || !wifiStatus.CONNECTION.includes(ssid))
+                    throw new Error("not yet connected");
+            },
+            { timeoutMs: 60 * 1000 }
+        );
+    }
 
-async function tryWifiRevert() {
-    if (networkManager === undefined) return;
+    public async tryWifiConnect() {
+        console.log("listing networks...");
+        const scanResult = await this.nm.device.wifi.list();
+        const targetNetwork = scanResult.find(r => r.SSID.startsWith("Eight-"));
+        if (!targetNetwork) throw new Error("not found");
 
-    console.log("reverting to Knotel...");
-    await networkManager.device.wifi.connect("Knotel", "hellohello");
-    console.log("reverted to Knotel");
+        const ssid = targetNetwork.SSID;
+        console.log(`network found ${ssid}, connecting...`);
+        await this.nm.device.wifi.connect(ssid);
+        await this.waitForConnection(ssid);
+        console.log(`connected to network ${ssid}`);
+    }
+
+    public async tryWifiRevert() {
+        console.log("reverting to Knotel...");
+        await this.nm.device.wifi.connect("Knotel", "hellohello");
+        await this.waitForConnection("Knotel");
+        console.log("reverted to Knotel");
+    }
 }
 
 async function pairAndGetDeviceId() {
     try {
-        await tryWifiConnect();
+        if (wifi) await wifi.tryWifiConnect();
 
         await Promises.wait(2000);
 
@@ -59,7 +73,7 @@ async function pairAndGetDeviceId() {
             }
         );
     } finally {
-        await tryWifiRevert();
+        if (wifi) await wifi.tryWifiRevert();
     }
 }
 
@@ -68,6 +82,8 @@ async function testDevice(serialNumber: string) {
         passedSerials.set(serialNumber, false);
         const deviceId = await pairAndGetDeviceId();
 
+        const deviceApi = new DeviceApi({ timeout: 5 * 1000 });
+        const kelvinApi = new KelvinApi({ timeout: 5 * 1000 });
         const healthCheck = new HealthCheck(serialNumber, deviceId, deviceApi, kelvinApi);
         const passed = await healthCheck.run();
         if (passed) passedSerials.set(serialNumber, true);
@@ -90,7 +106,7 @@ async function run(autoWifi: boolean) {
     console.log("auto-wifi:", autoWifi);
     const int = createInterface({ input: process.stdin, output: process.stdout, terminal: false });
 
-    if (autoWifi) networkManager = new UbuntuNM();
+    if (autoWifi) wifi = new Wifi(new UbuntuNM());
 
     while (true) {
         const serialNumber = await readLine(int);

@@ -82,6 +82,10 @@ class Device extends SimpleSubCommand {
     public constructor(parent: Command) {
         super(parent, ["device"]);
     }
+
+    public async status() {
+        return await this.get(["status"]);
+    }
 }
 
 class CommandError extends Error {
