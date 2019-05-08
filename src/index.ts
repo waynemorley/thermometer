@@ -5,7 +5,7 @@ import { HealthCheck } from "./system_checks";
 import { Device } from "./device";
 import { createInterface, Interface } from "readline";
 import * as colors from "colors";
-import { spreadsheetTest } from "./google_sheets";
+import { spreadsheetTest } from "./results_spreadsheet";
 
 const deviceApi = new DeviceApi();
 const kelvinApi = new KelvinApi();

@@ -1,10 +1,7 @@
-const spreadsheetId = "1MIYaIyZX7Q_rk6MioPJYKX5wvQ1lSDfUEPSRa_RRxn4";
-
 import * as fs from "fs";
 import { createInterface, Interface } from "readline";
 import { google } from "googleapis";
 import { OAuth2Client } from "googleapis-common";
-import { Promises } from "@eight/promises";
 
 const SCOPES = ["https://www.googleapis.com/auth/spreadsheets"];
 // token.json stores access tokens; created automatically by auth flow
@@ -19,25 +16,7 @@ async function question(rl: Interface, query: string): Promise<string> {
     });
 }
 
-class ResultsSpreadsheet {
-    static sheetId: string = "1MIYaIyZX7Q_rk6MioPJYKX5wvQ1lSDfUEPSRa_RRxn4";
-    constructor(private readonly spreadsheet: Spreadsheet) {}
-
-    public async addTestResults(deviceSerial: string, testResult: string) {
-        const body = {
-            values: [
-                [
-                    deviceSerial,
-                    // add spaces here...
-                    testResult
-                ]
-            ]
-        };
-        console.log(body);
-    }
-}
-
-class Spreadsheet {
+export class Spreadsheet {
     constructor(private readonly client: any, private readonly sheetId: string) {
         this.client = client;
         this.sheetId = sheetId;
@@ -55,7 +34,7 @@ class Spreadsheet {
     }
 }
 
-class GoogleSheets {
+export default class GoogleSheets {
     private static credsFile: string = "credentials.json";
     private readonly client: any;
 
@@ -115,13 +94,4 @@ class GoogleSheets {
         const oAuth2Client = await this.authorize(this.credsFile);
         return new GoogleSheets(oAuth2Client);
     }
-}
-
-export async function spreadsheetTest() {
-    const googleSheets = await GoogleSheets.getFromCredentials();
-    const resultsSheet = await googleSheets.getSpreadsheet(ResultsSpreadsheet.sheetId);
-    const resultsSpreadsheet = new ResultsSpreadsheet(resultsSheet);
-
-    await resultsSpreadsheet.addTestResults("hey", "test");
-    await resultsSheet.getTabTitles();
 }
