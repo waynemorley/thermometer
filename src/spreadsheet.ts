@@ -33,7 +33,6 @@ async function question(rl: Interface, query: string): Promise<string> {
 
 // get and return new token after prompting via user authorization URL
 async function getNewToken(oAuth2Client: OAuth2Client) {
-    console.log("getnewtoken entry");
     const authUrl = oAuth2Client.generateAuthUrl({
         access_type: "offline",
         scope: SCOPES
@@ -46,15 +45,11 @@ async function getNewToken(oAuth2Client: OAuth2Client) {
 
     console.log(`Authorize this app by visiting this url: ${authUrl}`);
     const code = await question(rl, "Enter the code from that page here: ");
-    console.log(`code is ${code}`);
 
     const newToken = (await oAuth2Client.getToken(code.toString())) as any;
-    console.log(`new tokens: ${JSON.stringify(newToken)}`);
 
-    // await oAuth2Client.setCredentials(newToken);
     await fs.writeFileSync(TOKEN_PATH, JSON.stringify(newToken));
-    console.log(`just wrote token to ${TOKEN_PATH}`);
-    return newToken.tokens;
+    return newToken;
 }
 
 // create an OAuth2 client with the given credentials
@@ -65,61 +60,33 @@ async function authorize(credentials: Credentials) {
     try {
         const rawToken = fs.readFileSync(TOKEN_PATH);
         token = JSON.parse(rawToken.toString());
-        console.log(`found a token ${JSON.stringify(token.tokens)}`);
-        if (token == undefined || token == undefined) throw new Error("undefined token");
+        if (token == undefined) throw new Error("undefined token");
     } catch (error) {
         token = await getNewToken(oAuth2Client);
-        console.log("got new token");
     } finally {
-        console.log(`setting creds w/ token ${JSON.stringify(token)}`);
-        await oAuth2Client.setCredentials(token);
+        await oAuth2Client.setCredentials(token.tokens);
     }
-    // try {
-    //     await oAuth2Client.setCredentials(token);
-    // } catch (error) {
-    //     console.log(`error w/ oAuth2Client.setCredentials(): ${error}`);
-    // }
-
-    console.log(`returning oath2client`);
     return oAuth2Client;
 }
 
 // initialize google sheets client and start reading from sheet
 async function readSheet(auth: OAuth2Client) {
     try {
-        console.log("about to get sheetclient");
         const sheetClient = google.sheets({ version: "v4", auth: auth });
-        console.log("got sheetclient");
         const res = await sheetClient.spreadsheets.get({
-            spreadsheetId: "1G7pwAZaaZXjWqJaw95YqQfAqNogogjeIjGj9qgDLs_E"
+            spreadsheetId: "1MIYaIyZX7Q_rk6MioPJYKX5wvQ1lSDfUEPSRa_RRxn4"
         });
-        console.log(res.data.sheets);
+        // console.log(res.data.sheets);
+        // const sheetName = "Reworked Float Bodies";
     } catch (error) {
-        console.log(`error initializing getting with sheetClient ${error}`);
+        console.log(`error with sheetClient: ${error}`);
         return;
     }
-    /*
-    const sheetClient = google.sheets({ version: "v4", auth: auth });
-    const res = await sheetClient.spreadsheets.get({
-        spreadsheetId: "1G7pwAZaaZXjWqJaw95YqQfAqNogogjeIjGj9qgDLs_E"
-    });
-    console.log(res);
-    const sheets = res.data.sheets;
-    console.log("sheets:", JSON.stringify(sheets));
-    if (sheets) {
-        for (const sheet of sheets) {
-            console.log(sheet);
-            // const tabName = sheet.properties.title;
-            // const bedSize = tabName.indexOf("King") > -1 ? "King" : "Queen";
-            // const rows = sheet.data.values;
-        }
-    }*/
 }
 
 export async function spreadsheetTest() {
     const content = fs.readFileSync("credentials.json");
     const auth = await authorize(JSON.parse(content as any));
-    console.log("done authorizing");
     try {
         await readSheet(auth);
     } catch (error) {
