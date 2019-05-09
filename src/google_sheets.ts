@@ -3,7 +3,6 @@ import { createInterface, Interface } from "readline";
 import { google, sheets_v4 } from "googleapis"; // client is type "sheets_v4.Sheets"
 // import { google } from "googleapis";
 import { OAuth2Client } from "googleapis-common";
-import { res } from "@eight/eight-rest";
 
 const SCOPES = ["https://www.googleapis.com/auth/spreadsheets"];
 // token.json stores access tokens; created automatically by auth flow
@@ -77,7 +76,6 @@ export class Spreadsheet {
                 ...args
             });
             // TODO: confirm 200 status in response
-            console.log(res.data);
         } catch (error) {
             console.log(`Error with spreadsheet appendValues: ${error}`);
         }
@@ -94,50 +92,6 @@ export class Spreadsheet {
             console.log(`Error with spreadsheet getValues: ${error}`);
         }
         return;
-    }
-
-    public async searchByKey(value: string) {
-        const basicFilter = {
-            criteria: {
-                condition: {
-                    type: "TEXT_CONTAINS",
-                    values: {
-                        userEnteredValue: value
-                    }
-                }
-            }
-        };
-        const requestBody = {
-            dataFilters: [
-                {
-                    developerMetadataLookup: {
-                        metadataLocation: {
-                            sheetId: this.sheetId
-                        },
-                        metadataValue: value
-                    },
-                    gridRange: {
-                        // COLUMN D = COL 3
-                        startColumnIndex: 3,
-                        endColumnIndex: 4 // exclusive
-                    },
-                    a1Range: `${this.sheetId}!D:D`
-                }
-            ],
-            majorDimension: "ROWS"
-        };
-
-        const request = {
-            spreadsheetId: this.sheetId,
-            resource: requestBody
-        };
-        try {
-            const res = await this.client.spreadsheets.getByDataFilter(request);
-            console.log(res.data.sheets);
-            // console.log(res.)
-        } catch (error) {
-            console.log(`error with metadata request: ${error}`);
-        }
     }
 }
 
@@ -190,7 +144,6 @@ export default class GoogleSheets {
                 resolve(name);
             });
         });
-        // const code = await question(rl, "Enter the code from that page here: ");
 
         const newToken = (await oAuth2Client.getToken(code.toString())) as any;
         await fs.writeFileSync(TOKEN_PATH, JSON.stringify(newToken));

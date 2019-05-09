@@ -50,8 +50,6 @@ async function run() {
     const resultsSheet = await googleSheets.getSpreadsheet(ResultsSpreadsheet.sheetId);
     const resultsSpreadsheet = new ResultsSpreadsheet(resultsSheet);
 
-    resultsSpreadsheet.addTestResults("aaa908", "pass");
-    return;
     while (true) {
         const serialNumber = await readLine(int);
         if (!isValidSerial(serialNumber)) {

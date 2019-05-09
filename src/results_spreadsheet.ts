@@ -1,15 +1,13 @@
-import GoogleSheets, { Spreadsheet, WriteArgs, ReadArgs } from "./google_sheets";
+import { Spreadsheet, WriteArgs, ReadArgs } from "./google_sheets";
 import { DateTime } from "luxon";
 
 export default class ResultsSpreadsheet {
     static sheetId: string = "1MIYaIyZX7Q_rk6MioPJYKX5wvQ1lSDfUEPSRa_RRxn4";
-    // private readonly tabTitle: string = "HUB QC TRACKING";
-    private readonly tabTitle: string = "mercer";
+    private readonly tabTitle: string = "HUB QC TRACKING";
     constructor(private readonly spreadsheet: Spreadsheet) {}
 
     private async getRowOfDevice(deviceSerial: string) {
         // checks if this device is already in the spreadsheet by getting the row
-        // await this.spreadsheet.searchByKey(deviceSerial);
         const args: ReadArgs = {
             spreadsheetId: ResultsSpreadsheet.sheetId,
             range: `${this.tabTitle}!D:D`
@@ -53,7 +51,6 @@ export default class ResultsSpreadsheet {
 
         // todo: check if it is there first w/ endSn
         const deviceRow = await this.getRowOfDevice(endSn);
-        console.log(`device row of SN ${endSn} is ${deviceRow}`);
 
         if (deviceRow > -1) {
             // existing device; update test result only
