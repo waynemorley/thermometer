@@ -296,6 +296,7 @@ export class HealthCheck {
             try {
                 retries--;
                 testPass = await this.runCheck();
+                if (testPass) break;
             } catch (err) {
                 this.log("ERROR " + err);
             }
