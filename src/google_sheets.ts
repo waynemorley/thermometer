@@ -3,6 +3,7 @@ import { createInterface, Interface } from "readline";
 import { google, sheets_v4 } from "googleapis"; // client is type "sheets_v4.Sheets"
 // import { google } from "googleapis";
 import { OAuth2Client } from "googleapis-common";
+import { res } from "@eight/eight-rest";
 
 const SCOPES = ["https://www.googleapis.com/auth/spreadsheets"];
 // token.json stores access tokens; created automatically by auth flow
@@ -17,11 +18,16 @@ async function question(rl: Interface, query: string): Promise<string> {
     });
 }
 
-export interface AppendArgs {
+export interface WriteArgs {
     spreadsheetId: string;
     range: string;
     valueInputOption: string;
     resource: any;
+}
+
+export interface ReadArgs {
+    spreadsheetId: string;
+    range: string;
 }
 
 export class Spreadsheet {
@@ -35,23 +41,103 @@ export class Spreadsheet {
             const res = await this.client.spreadsheets.get({
                 spreadsheetId: this.sheetId
             });
-            console.log(res.data.sheets);
+            return res.data.sheets;
         } catch (error) {
-            console.log(`Error with spreadsheet get: ${error}`);
+            console.log(`Error with spreadsheet getTabTitles: ${error}`);
         }
+        return;
     }
 
-    public async appendValues(args: AppendArgs) {
+    public findRowByValue(values: string[][], valueToFind: string) {
+        let rowIndex = 1;
+        for (const value of values) {
+            if (value[0] === valueToFind) {
+                return rowIndex;
+            }
+            rowIndex++;
+        }
+        return -1;
+    }
+
+    public async updateRow(args: WriteArgs) {
         try {
-            const res = await this.client.spreadsheets.values.append({
-                spreadsheetId: this.sheetId,
+            const res = await this.client.spreadsheets.values.update({
                 ...args
             });
             // TODO: confirm 200 status in response
         } catch (error) {
+            console.log(`Error with spreadsheet updateRow: ${error}`);
+        }
+        return;
+    }
+
+    public async appendValues(args: WriteArgs) {
+        try {
+            const res = await this.client.spreadsheets.values.append({
+                ...args
+            });
+            // TODO: confirm 200 status in response
+            console.log(res.data);
+        } catch (error) {
             console.log(`Error with spreadsheet appendValues: ${error}`);
         }
         return;
+    }
+
+    public async getValues(args: ReadArgs) {
+        try {
+            const res = await this.client.spreadsheets.values.get({
+                ...args
+            });
+            return res.data.values;
+        } catch (error) {
+            console.log(`Error with spreadsheet getValues: ${error}`);
+        }
+        return;
+    }
+
+    public async searchByKey(value: string) {
+        const basicFilter = {
+            criteria: {
+                condition: {
+                    type: "TEXT_CONTAINS",
+                    values: {
+                        userEnteredValue: value
+                    }
+                }
+            }
+        };
+        const requestBody = {
+            dataFilters: [
+                {
+                    developerMetadataLookup: {
+                        metadataLocation: {
+                            sheetId: this.sheetId
+                        },
+                        metadataValue: value
+                    },
+                    gridRange: {
+                        // COLUMN D = COL 3
+                        startColumnIndex: 3,
+                        endColumnIndex: 4 // exclusive
+                    },
+                    a1Range: `${this.sheetId}!D:D`
+                }
+            ],
+            majorDimension: "ROWS"
+        };
+
+        const request = {
+            spreadsheetId: this.sheetId,
+            resource: requestBody
+        };
+        try {
+            const res = await this.client.spreadsheets.getByDataFilter(request);
+            console.log(res.data.sheets);
+            // console.log(res.)
+        } catch (error) {
+            console.log(`error with metadata request: ${error}`);
+        }
     }
 }
 
