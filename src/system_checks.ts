@@ -241,6 +241,7 @@ export class HealthCheck {
                 heatingRightdT
             )}`
         );
+        if (!this.tecPass(heatingLeftdT, heatingRightdT)) return false;
 
         if (!this.tecPass(heatingLeftdT, heatingRightdT)) return false;
 

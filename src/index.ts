@@ -5,11 +5,12 @@ import { HealthCheck } from "./system_checks";
 import { Device } from "./device";
 import { createInterface, Interface } from "readline";
 import * as colors from "colors";
+import GoogleSheets from "./google_sheets";
+import ResultsSpreadsheet from "./results_spreadsheet";
 import { UbuntuNM } from "./ubuntu_nm";
 import { Promises } from "@eight/promises";
 import { retry } from "./utilities";
 import yargs = require("yargs");
-
 
 const device = new Device();
 
@@ -77,7 +78,7 @@ async function pairAndGetDeviceId() {
     }
 }
 
-async function testDevice(serialNumber: string) {
+async function testDevice(serialNumber: string, resultsSpreadsheet: ResultsSpreadsheet) {
     try {
         passedSerials.set(serialNumber, false);
         const deviceId = await pairAndGetDeviceId();
@@ -86,8 +87,13 @@ async function testDevice(serialNumber: string) {
         const kelvinApi = new KelvinApi({ timeout: 5 * 1000 });
         const healthCheck = new HealthCheck(serialNumber, deviceId, deviceApi, kelvinApi);
         const passed = await healthCheck.run();
-        if (passed) passedSerials.set(serialNumber, true);
-        else passedSerials.delete(serialNumber);
+        if (passed) {
+            passedSerials.set(serialNumber, true);
+            await resultsSpreadsheet.addTestResults(serialNumber, "PASS");
+        } else {
+            passedSerials.delete(serialNumber);
+            await resultsSpreadsheet.addTestResults(serialNumber, "FAIL");
+        }
     } catch (err) {
         console.log("FAIL", err);
         passedSerials.delete(serialNumber);
@@ -106,6 +112,9 @@ async function run(autoWifi: boolean) {
     console.log("auto-wifi:", autoWifi);
     const int = createInterface({ input: process.stdin, output: process.stdout, terminal: false });
 
+    const googleSheets = await GoogleSheets.getFromCredentials();
+    const resultsSheet = await googleSheets.getSpreadsheet(ResultsSpreadsheet.sheetId);
+    const resultsSpreadsheet = new ResultsSpreadsheet(resultsSheet);
     if (autoWifi) wifi = new Wifi(new UbuntuNM());
 
     while (true) {
@@ -123,7 +132,7 @@ async function run(autoWifi: boolean) {
             continue;
         }
 
-        testDevice(serialNumber);
+        testDevice(serialNumber, resultsSpreadsheet);
     }
 }
 
