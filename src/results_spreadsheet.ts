@@ -1,28 +1,36 @@
-import GoogleSheets, { Spreadsheet } from "./google_sheets";
+import GoogleSheets, { Spreadsheet, AppendArgs } from "./google_sheets";
+import { DateTime } from "luxon";
 
-class ResultsSpreadsheet {
+export default class ResultsSpreadsheet {
     static sheetId: string = "1MIYaIyZX7Q_rk6MioPJYKX5wvQ1lSDfUEPSRa_RRxn4";
+    private readonly tabTitle: string = "Mercer_Floats";
     constructor(private readonly spreadsheet: Spreadsheet) {}
 
     public async addTestResults(deviceSerial: string, testResult: string) {
-        const body = {
-            values: [
-                [
-                    deviceSerial,
-                    // add spaces here...
-                    testResult
-                ]
+        const now = DateTime.local();
+
+        const values = [
+            [
+                now.toLocaleString(), // date
+                now.toFormat("HH:mm:ss"), // time
+                "",
+                deviceSerial,
+                "",
+                "",
+                "",
+                "",
+                testResult,
+                "2.2.22.0",
+                "China"
             ]
+        ];
+        const args: AppendArgs = {
+            spreadsheetId: ResultsSpreadsheet.sheetId,
+            range: `${this.tabTitle}!A:A`,
+            valueInputOption: "USER_ENTERED",
+            resource: { values }
         };
-        console.log(body);
+
+        await this.spreadsheet.appendValues(args);
     }
-}
-
-export async function spreadsheetTest() {
-    const googleSheets = await GoogleSheets.getFromCredentials();
-    const resultsSheet = await googleSheets.getSpreadsheet(ResultsSpreadsheet.sheetId);
-    const resultsSpreadsheet = new ResultsSpreadsheet(resultsSheet);
-
-    await resultsSpreadsheet.addTestResults("hey", "test");
-    await resultsSheet.getTabTitles();
 }

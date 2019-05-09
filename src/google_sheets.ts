@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import { createInterface, Interface } from "readline";
+// import { google, sheets_v4 } from "googleapis"; // client is type "sheets_v4.Sheets"
 import { google } from "googleapis";
 import { OAuth2Client } from "googleapis-common";
 
@@ -14,6 +15,13 @@ async function question(rl: Interface, query: string): Promise<string> {
             resolve(name);
         });
     });
+}
+
+export interface AppendArgs {
+    spreadsheetId: string;
+    range: string;
+    valueInputOption: string;
+    resource: any;
 }
 
 export class Spreadsheet {
@@ -31,6 +39,19 @@ export class Spreadsheet {
         } catch (error) {
             console.log(`Error with spreadsheet get: ${error}`);
         }
+    }
+
+    public async appendValues(args: AppendArgs) {
+        try {
+            const res = await this.client.spreadsheets.values.append({
+                spreadsheetId: this.sheetId,
+                ...args
+            });
+            // TODO: confirm 200 status in response
+        } catch (error) {
+            console.log(`Error with spreadsheet appendValues: ${error}`);
+        }
+        return;
     }
 }
 

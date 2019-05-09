@@ -5,7 +5,8 @@ import { HealthCheck } from "./system_checks";
 import { Device } from "./device";
 import { createInterface, Interface } from "readline";
 import * as colors from "colors";
-import { spreadsheetTest } from "./results_spreadsheet";
+import GoogleSheets from "./google_sheets";
+import ResultsSpreadsheet from "./results_spreadsheet";
 
 const deviceApi = new DeviceApi();
 const kelvinApi = new KelvinApi();
@@ -38,8 +39,14 @@ function isValidSerial(text: string) {
 }
 
 async function run() {
-    /*const int = createInterface({ input: process.stdin, output: process.stdout, terminal: false });
+    const int = createInterface({ input: process.stdin, output: process.stdout, terminal: false });
 
+    const googleSheets = await GoogleSheets.getFromCredentials();
+    const resultsSheet = await googleSheets.getSpreadsheet(ResultsSpreadsheet.sheetId);
+    const resultsSpreadsheet = new ResultsSpreadsheet(resultsSheet);
+
+    await resultsSpreadsheet.addTestResults("hey", "test");
+    /*
     while (true) {
         const serialNumber = await readLine(int);
         if (!isValidSerial(serialNumber)) {
@@ -49,14 +56,14 @@ async function run() {
 
         const passed = passedSerials.get(serialNumber);
         if (passed !== undefined) {
-            if (passed) console.log(colors.bgGreen.white(`\n\n\n\n     DEVICE ${serialNumber} PASSED THE TEST     \n\n\n`));
+            if (passed)
+                console.log(colors.bgGreen.white(`\n\n\n\n     DEVICE ${serialNumber} PASSED THE TEST     \n\n\n`));
             else console.log(`DEVICE ${serialNumber} is being tested`);
             continue;
         }
 
         testDevice(serialNumber);
     }*/
-    spreadsheetTest();
 }
 
 // yargs.demandOption(["dev"]).argv;
