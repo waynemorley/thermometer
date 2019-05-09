@@ -27,7 +27,7 @@ function round(value: number, digits: number) {
 export class HealthCheck {
     constructor(
         private readonly serialNumber: string,
-        private readonly devId: string,
+        private readonly deviceId: string,
         private readonly deviceApi: DeviceApi,
         private readonly kelvinApi: KelvinApi
     ) {}
@@ -48,7 +48,7 @@ export class HealthCheck {
     private async getTemps(): Promise<SideTemps> {
         return await retry(
             async () => {
-                const state = await this.deviceApi.getState(this.devId);
+                const state = await this.deviceApi.getState(this.deviceId);
                 const leftT = (state["heatLevelL"] as any).value as number;
                 const rightT = (state["heatLevelR"] as any).value as number;
 
@@ -59,12 +59,11 @@ export class HealthCheck {
                     rightTemp: round(this.convertTemp(rightT), 2)
                 };
             },
-            8,
-            10 * 1000
+            { retries: 8, sleepMs: 10 * 1000 }
         );
     }
 
-    private async getTecTestEvents(startTime: DateTime) {
+    private getTecTestEvents(startTime: DateTime) {
         startTime = startTime.plus({ seconds: 1 });
         const stateEvents: StateEvent[] = [
             {
@@ -107,7 +106,7 @@ export class HealthCheck {
         return stateEvents;
     }
 
-    private async getPumpToggleEvents(startTime: DateTime) {
+    private getPumpToggleEvents(startTime: DateTime) {
         startTime = startTime.plus({ seconds: 1 });
         const stateEvents: StateEvent[] = [
             {
@@ -158,45 +157,46 @@ export class HealthCheck {
         }
     }
 
-    public async online() {
-        const startTime = new Date();
-        let online = false;
-        while (online === false) {
-            try {
-                const state = await this.deviceApi.getState(this.devId);
-                const lastHeard = DateTime.fromISO((state["lastHeard"] as any).value as string).toJSDate();
-                online = DateTime.utc().diff(DateTime.fromJSDate(lastHeard), "minutes").minutes < 2;
-                if (online) {
-                    await Promises.wait(1000);
-                    return true;
-                }
-            } catch (error) {
-                this.log(`Error getting device state: ${error}`);
-            }
+    private async assertReady() {
+        const latestFw = "2.2.22.0";
+        const state = await this.deviceApi.getState(this.deviceId);
+        const lastHeard = DateTime.fromISO((state["lastHeard"] as any).value as string).toJSDate();
+        const isOnline = DateTime.utc().diff(DateTime.fromJSDate(lastHeard), "minutes").minutes < 2;
+        if (!isOnline) throw new Error("device offline");
 
-            const elapsedMs = new Date().valueOf() - startTime.valueOf();
-            if (elapsedMs > twoMinutes) throw new Error("device never online");
+        const fwVersion = (state["firmwareVersion"] as any).value as string;
+        const isLatestFw = fwVersion === latestFw;
+        if (!isLatestFw) throw new Error("device FW invalid");
+    }
 
-            this.log(`Device offline, trying again in 5 seconds...`);
-            await Promises.wait(5 * 1000);
-        }
+    public async waitReady() {
+        await retry(() => this.assertReady(), { sleepMs: 5 * 1000, timeoutMs: 2 * twoMinutes });
+    }
 
-        return false;
+    private async callFunction(name: string) {
+        await retry(() => this.deviceApi.callFunction(this.deviceId, name, true), { timeoutMs: twoMinutes });
     }
 
     public async primeSequence() {
         this.log("Beginning short prime sequence. Priming for 2 minutes...");
         try {
-            await this.deviceApi.callFunction(this.devId, "prime", true);
+            await this.callFunction("prime");
             await Promises.wait(twoMinutes);
 
-            await this.deviceApi.callFunction(this.devId, "reset", true);
+            await this.callFunction("reset");
             await Promises.wait(10 * 1000);
 
             this.log("Prime sequence. Toggling pumps...");
-            const stateEvents = await this.getPumpToggleEvents(DateTime.utc());
-            await this.kelvinApi.putSideStateEvents(this.devId, "left", stateEvents);
-            await this.kelvinApi.putSideStateEvents(this.devId, "right", stateEvents);
+            await retry(
+                async () => {
+                    const stateEvents = this.getPumpToggleEvents(DateTime.utc());
+                    await Promise.all([
+                        this.kelvinApi.putSideStateEvents(this.deviceId, "left", stateEvents),
+                        this.kelvinApi.putSideStateEvents(this.deviceId, "right", stateEvents)
+                    ]);
+                },
+                { timeoutMs: twoMinutes }
+            );
 
             await Promises.wait(20 * 1000);
 
@@ -217,9 +217,14 @@ export class HealthCheck {
         const initialTemps = await this.getTemps();
         this.log(`TEC test with initial temps ${JSON.stringify(initialTemps)}. Heating for 60s...`);
 
-        const stateEvents = await this.getTecTestEvents(DateTime.utc());
-        await this.kelvinApi.putSideStateEvents(this.devId, "left", stateEvents);
-        await this.kelvinApi.putSideStateEvents(this.devId, "right", stateEvents);
+        await retry(
+            async () => {
+                const stateEvents = this.getTecTestEvents(DateTime.utc());
+                await this.kelvinApi.putSideStateEvents(this.deviceId, "left", stateEvents);
+                await this.kelvinApi.putSideStateEvents(this.deviceId, "right", stateEvents);
+            },
+            { timeoutMs: twoMinutes }
+        );
 
         await Promises.wait(90 * 1000);
 
@@ -236,6 +241,8 @@ export class HealthCheck {
                 heatingRightdT
             )}`
         );
+        if (!this.tecPass(heatingLeftdT, heatingRightdT)) return false;
+
         if (!this.tecPass(heatingLeftdT, heatingRightdT)) return false;
 
         this.log("TEC test. Cooling for 60s...");
@@ -257,35 +264,53 @@ export class HealthCheck {
         return this.tecPass(coolingLeftdT, coolingRightdT, heatingLeftdT, heatingRightdT);
     }
 
-    public async run(): Promise<boolean> {
+    private async runCheck(): Promise<boolean> {
         try {
             this.log(
-                `Running health check (priming pumps & thermal performance) on dev ${this.devId}. Checking online...`
+                `Running health check (priming pumps & thermal performance) on dev ${this.deviceId}. Checking online...`
             );
-            await this.online();
+            await this.waitReady();
+
             const startTime = Math.floor(DateTime.local().valueOf() / 1000.0);
             const initialTemps = await this.getTemps();
             this.log(`Initial temps: ${JSON.stringify(initialTemps)}`);
             await this.primeSequence();
 
-            await this.online();
+            await this.waitReady();
             const tecPass = await this.tecTest();
             const endTime = Math.floor(DateTime.local().valueOf() / 1000.0);
             const runtime = Duration.fromObject({ seconds: endTime - startTime }).as("minutes");
             this.log(`Finished running tests in ${runtime.toFixed(2)} minutes`);
-            if (tecPass) {
-                this.log(
-                    colors.bgGreen.white(nl(4) + "****Test PASS****") +
-                        colors.yellow(" Next step: factory reset device") +
-                        nl(4)
-                );
-                return true;
-            }
+            if (tecPass) return true;
         } catch (err) {
             this.log("ERROR " + err);
         }
 
-        this.log(colors.bgRed.white(nl(4) + "****Test FAIL****. Please try again") + nl(4));
         return false;
+    }
+
+    public async run(): Promise<boolean> {
+        let retries = 3;
+        let testPass = false;
+        while (retries > 0 && !testPass) {
+            try {
+                retries--;
+                testPass = await this.runCheck();
+            } catch (err) {
+                this.log("ERROR " + err);
+            }
+            await Promises.wait(60 * 1000);
+        }
+
+        if (testPass) {
+            this.log(
+                colors.bgGreen.white("****Test PASS****") +
+                    colors.yellow(`with ${retries} retries left. Next step: factory reset device`)
+            );
+            return true;
+        } else {
+            this.log(colors.bgRed.white("****Test FAIL**** after 3 retries"));
+            return false;
+        }
     }
 }

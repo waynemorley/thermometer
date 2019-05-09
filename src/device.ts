@@ -1,9 +1,8 @@
 import { Socket } from "net";
 import { Promises } from "@eight/promises";
 import * as joi from "types-joi";
-import { createPublicKey, publicEncrypt, getCiphers, KeyObject } from "crypto";
+import { createPublicKey, publicEncrypt, KeyObject } from "crypto";
 import { RSA_PKCS1_PADDING } from "constants";
-import { retry } from "./utilities";
 
 function trimNullTerminatedBufferEnd(buffer: Buffer) {
     for (let i = buffer.length - 1; i >= 0; i--) if (buffer[i]) return buffer.slice(0, i + 1);
@@ -96,12 +95,20 @@ class WifiNetwork {
 
 async function socketConnect(host: string, port: number): Promise<Socket> {
     const socket = new Socket();
-    await Promises.toPromise(cb => socket.connect(port, host, () => cb(undefined)));
+    try {
+        socket.setTimeout(1000);
+        socket.on("timeout", () => socket.destroy(timeout()));
+        await new Promise<void>((res, rej) => {
+            socket.on("error", err => rej(err));
+            socket.connect(port, host, res);
+        });
 
-    socket.setTimeout(1000);
-    socket.on("timeout", () => socket.destroy(timeout()));
 
-    return socket;
+        return socket;
+    } catch (err) {
+        if (!socket.destroyed) socket.destroy();
+        throw err;
+    }
 }
 
 async function writeSocket(socket: Socket, data: Buffer) {
@@ -141,17 +148,12 @@ interface Request {
 export class Device {
     public constructor(private readonly address: string = "192.168.0.1", private readonly port: number = 5609) {}
 
-    private async connect(): Promise<Socket> {
-        return await socketConnect(this.address, this.port);
-    }
-
     private async get<T>(request: Request, responseSchema: joi.Schema<T>): Promise<T> {
-        const socket = await this.connect();
-        let response;
+        const socket = await socketConnect(this.address, this.port);
         try {
             await writeSocket(socket, encodeRequest(request));
 
-            response = await readToEnd(socket);
+            const response = await readToEnd(socket);
             return decodeMessage(response, responseSchema);
         } finally {
             if (!socket.destroyed) socket.destroy();
@@ -197,15 +199,5 @@ export class Device {
         await this.connectToNetwork();
 
         return deviceId;
-    }
-}
-
-export async function connect() {
-    try {
-        const device = new Device();
-        const deviceId = await retry(() => device.connectAndGetId("Knotel", "hellohello"), 3);
-        console.log("deviceId", deviceId);
-    } catch (err) {
-        console.log("fail", err);
     }
 }
