@@ -3,7 +3,7 @@ import { DateTime } from "luxon";
 
 export default class ResultsSpreadsheet {
     static sheetId: string = "1MIYaIyZX7Q_rk6MioPJYKX5wvQ1lSDfUEPSRa_RRxn4";
-    private readonly tabTitle: string = "Mercer_Floats";
+    private readonly tabTitle: string = "HUB QC TRACKING";
     constructor(private readonly spreadsheet: Spreadsheet) {}
 
     public async addTestResults(deviceSerial: string, testResult: string) {
@@ -18,7 +18,7 @@ export default class ResultsSpreadsheet {
                 "",
                 "",
                 "",
-                "",
+                "", // todo: pass in "retriesLeft" here
                 testResult,
                 "2.2.22.0",
                 "China"

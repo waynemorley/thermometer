@@ -15,15 +15,20 @@ const device = new Device();
 
 const passedSerials = new Map<string, boolean>();
 
-async function testDevice(serialNumber: string) {
+async function testDevice(serialNumber: string, resultsSpreadsheet: ResultsSpreadsheet) {
     try {
         passedSerials.set(serialNumber, false);
         const deviceId = await device.connectAndGetId("Knotel", "hellohello");
 
         const healthCheck = new HealthCheck(serialNumber, deviceId, deviceApi, kelvinApi);
         const passed = await healthCheck.run();
-        if (passed) passedSerials.set(serialNumber, true);
-        else passedSerials.delete(serialNumber);
+        if (passed) {
+            passedSerials.set(serialNumber, true);
+            await resultsSpreadsheet.addTestResults(serialNumber, "PASS");
+        } else {
+            passedSerials.delete(serialNumber);
+            await resultsSpreadsheet.addTestResults(serialNumber, "FAIL");
+        }
     } catch (err) {
         console.log("FAIL", err);
         passedSerials.delete(serialNumber);
@@ -45,8 +50,6 @@ async function run() {
     const resultsSheet = await googleSheets.getSpreadsheet(ResultsSpreadsheet.sheetId);
     const resultsSpreadsheet = new ResultsSpreadsheet(resultsSheet);
 
-    await resultsSpreadsheet.addTestResults("hey", "test");
-    /*
     while (true) {
         const serialNumber = await readLine(int);
         if (!isValidSerial(serialNumber)) {
@@ -62,8 +65,8 @@ async function run() {
             continue;
         }
 
-        testDevice(serialNumber);
-    }*/
+        testDevice(serialNumber, resultsSpreadsheet);
+    }
 }
 
 // yargs.demandOption(["dev"]).argv;

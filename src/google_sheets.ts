@@ -1,7 +1,7 @@
 import * as fs from "fs";
 import { createInterface, Interface } from "readline";
-// import { google, sheets_v4 } from "googleapis"; // client is type "sheets_v4.Sheets"
-import { google } from "googleapis";
+import { google, sheets_v4 } from "googleapis"; // client is type "sheets_v4.Sheets"
+// import { google } from "googleapis";
 import { OAuth2Client } from "googleapis-common";
 
 const SCOPES = ["https://www.googleapis.com/auth/spreadsheets"];
@@ -25,7 +25,7 @@ export interface AppendArgs {
 }
 
 export class Spreadsheet {
-    constructor(private readonly client: any, private readonly sheetId: string) {
+    constructor(private readonly client: sheets_v4.Sheets, private readonly sheetId: string) {
         this.client = client;
         this.sheetId = sheetId;
     }
@@ -57,7 +57,7 @@ export class Spreadsheet {
 
 export default class GoogleSheets {
     private static credsFile: string = "credentials.json";
-    private readonly client: any;
+    private readonly client: sheets_v4.Sheets;
 
     constructor(private readonly authClient: OAuth2Client) {
         this.client = google.sheets({ version: "v4", auth: authClient });

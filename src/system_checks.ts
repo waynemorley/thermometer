@@ -236,6 +236,7 @@ export class HealthCheck {
                 heatingRightdT
             )}`
         );
+        if (!this.tecPass(heatingLeftdT, heatingRightdT)) return false;
 
         this.log("TEC test. Cooling for 60s...");
         await Promises.wait(90 * 1000);
