@@ -9,7 +9,7 @@ import GoogleSheets from "./google_sheets";
 import ResultsSpreadsheet from "./results_spreadsheet";
 import { UbuntuNM } from "./ubuntu_nm";
 import { Promises } from "@eight/promises";
-import { retry } from "./utilities";
+import { retry, getId } from "./utilities";
 import yargs = require("yargs");
 
 const device = new Device();
@@ -78,10 +78,9 @@ async function pairAndGetDeviceId() {
     }
 }
 
-async function testDevice(serialNumber: string, resultsSpreadsheet: ResultsSpreadsheet) {
+async function testDevice(deviceId: string, serialNumber: string, resultsSpreadsheet: ResultsSpreadsheet) {
     try {
         passedSerials.set(serialNumber, false);
-        const deviceId = await pairAndGetDeviceId();
 
         const deviceApi = new DeviceApi({ timeout: 5 * 1000 });
         const kelvinApi = new KelvinApi({ timeout: 5 * 1000 });
@@ -100,6 +99,18 @@ async function testDevice(serialNumber: string, resultsSpreadsheet: ResultsSprea
     }
 }
 
+async function testRemoteDevice(deviceId: string) {
+    try {
+        const deviceApi = new DeviceApi({ timeout: 5 * 1000 });
+        const kelvinApi = new KelvinApi({ timeout: 5 * 1000 });
+        const healthCheck = new HealthCheck(deviceId, deviceId, deviceApi, kelvinApi);
+        const passed = await healthCheck.run();
+        console.log(`Device ${deviceId}: ${passed ? "passed" : "failed"}`);
+    } catch (err) {
+        console.log("FAIL", err);
+    }
+}
+
 function readLine(int: Interface): Promise<string> {
     return new Promise(res => int.once("line", line => res(line)));
 }
@@ -108,8 +119,17 @@ function isValidSerial(text: string) {
     return text.length > 5;
 }
 
+async function runRemote(id: string, email: boolean) {
+    let deviceId = "";
+    if (email) {
+        deviceId = await getId(id);
+    } else {
+        deviceId = id;
+    }
+    await testRemoteDevice(deviceId);
+}
+
 async function run(autoWifi: boolean) {
-    console.log("auto-wifi:", autoWifi);
     const int = createInterface({ input: process.stdin, output: process.stdout, terminal: false });
 
     const googleSheets = await GoogleSheets.getFromCredentials();
@@ -131,15 +151,25 @@ async function run(autoWifi: boolean) {
             else console.log(`DEVICE ${serialNumber} is being tested`);
             continue;
         }
-
-        testDevice(serialNumber, resultsSpreadsheet);
+        const deviceId = await pairAndGetDeviceId();
+        testDevice(deviceId, serialNumber, resultsSpreadsheet);
     }
 }
 
-const args = yargs.option("wifi", {
-    boolean: true,
-    alias: "w",
-    default: false
-}).argv;
+const args = yargs
+    .option("wifi", {
+        boolean: true,
+        alias: "w",
+        default: false
+    })
+    .option("deviceId", {
+        string: true,
+        alias: "d"
+    })
+    .option("userEmail", {
+        string: true,
+        alias: "u"
+    })
+    .conflicts({ wifi: "deviceId", deviceId: "userEmail" }).argv;
 
 run(args.wifi);
