@@ -1,4 +1,26 @@
 import { Promises } from "@eight/promises";
+import { ClientApi } from "@eight/practices";
+
+const clientApi = new ClientApi({
+    token: { token: "cf9371ebd99a44bfa8ce6c521045d7b2-99f976f3935fec39d5e1890e5eec12f6", type: "session" }
+});
+
+export async function getId(email: string): Promise<string> {
+    try {
+        const user = await clientApi.userGet(email);
+        return user.devices[0];
+    } catch (error) {
+        console.log(`got error ${error}`);
+        return "fail";
+    }
+}
+
+export function isValid(str: string, r: string): boolean {
+    const m = str.match(new RegExp(r));
+    const valid = m ? true : false;
+    if (!valid) throw new Error("invalid option");
+    return valid;
+}
 
 export interface OptionsTimeout {
     readonly sleepMs?: number;
