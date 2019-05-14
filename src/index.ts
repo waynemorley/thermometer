@@ -120,28 +120,16 @@ function isValidSerial(text: string) {
     return text.length > 5;
 }
 
-async function runRemote(id: string, email: boolean) {
-    console.log(id);
-    let deviceId = "";
-    if (email) {
-        console.log(`runRemote got email: ${id}`);
-        deviceId = await getId(id);
-    } else {
-        console.log(`runRemote got id: ${id}`);
-        deviceId = id;
-    }
-    await testRemoteDevice(deviceId);
-}
-
 async function run(args: any) {
-    console.log(args);
     const command = args._[0];
     try {
         if (command === "remote") {
-            if ("deviceId" in args && isValid(args.deviceId, "[[A-Fa-f0-9]{24}")) runRemote(args.deviceId, false);
-            if ("email" in args && isValid(args.email, "^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+.[a-zA-Z0-9-.]+$"))
-                runRemote(args.email, true);
-            else throw new Error("no deviceId or email specified");
+            if ("deviceId" in args && isValid(args.deviceId, "[[A-Fa-f0-9]{24}")) {
+                await testRemoteDevice(args.deviceId);
+            } else if ("email" in args && isValid(args.email, "^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+.[a-zA-Z0-9-.]+$")) {
+                const deviceId = await getId(args.email);
+                await testRemoteDevice(deviceId);
+            } else throw new Error("no deviceId or email specified");
         } else {
             runTest(args.wifi);
         }
