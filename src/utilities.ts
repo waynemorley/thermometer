@@ -15,6 +15,14 @@ export async function getId(email: string): Promise<string> {
     }
 }
 
+export function isValid(str: string, r: string): boolean {
+    const m = str.match(new RegExp(r));
+    const valid = m ? true : false;
+    console.log(`${str} is valid? ${valid}`);
+    if (!valid) throw new Error("invalid option");
+    return valid;
+}
+
 export interface OptionsTimeout {
     readonly sleepMs?: number;
     readonly timeoutMs: number;
