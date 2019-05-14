@@ -1,7 +1,7 @@
 import { CommandModule, Argv } from "yargs";
 
 export class RemoteCommand implements CommandModule<{}, any> {
-    public readonly aliases = ["*"];
+    public readonly aliases = ["r"];
     public readonly command = "remote";
     public readonly describe = "runs remote healthcheck on [deviceId|email]";
 
