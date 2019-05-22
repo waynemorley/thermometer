@@ -158,15 +158,15 @@ export class HealthCheck {
     }
 
     private async assertReady() {
-        const latestFw = "2.2.22.0";
+        const latestFw = "2.2.23.0";
         const state = await this.deviceApi.getState(this.deviceId);
         const lastHeard = DateTime.fromISO((state["lastHeard"] as any).value as string).toJSDate();
         const isOnline = DateTime.utc().diff(DateTime.fromJSDate(lastHeard), "minutes").minutes < 2;
         if (!isOnline) throw new Error("device offline");
 
         const fwVersion = (state["firmwareVersion"] as any).value as string;
-        const isLatestFw = fwVersion === latestFw;
-        if (!isLatestFw) throw new Error("device FW invalid");
+        const isOldFw = fwVersion < latestFw;
+        if (isOldFw) throw new Error("device FW invalid");
     }
 
     public async waitReady() {
