@@ -9,9 +9,11 @@ import GoogleSheets from "./google_sheets";
 import ResultsSpreadsheet from "./results_spreadsheet";
 import { UbuntuNM } from "./ubuntu_nm";
 import { Promises } from "@eight/promises";
-import { retry, getId, isValid } from "./utilities";
+import { retry, getDeviceId, isValid } from "./utilities";
 import * as yargs from "yargs";
 import { RemoteCommand } from "./remote_command";
+import { postSchedules } from "./post_schedules";
+import { DateTime } from "luxon";
 
 const device = new Device();
 
@@ -127,7 +129,7 @@ async function run(args: any) {
             if ("deviceId" in args && isValid(args.deviceId, "[[A-Fa-f0-9]{24}")) {
                 await testRemoteDevice(args.deviceId);
             } else if ("email" in args && isValid(args.email, "^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+.[a-zA-Z0-9-.]+$")) {
-                const deviceId = await getId(args.email);
+                const deviceId = await getDeviceId(args.email);
                 await testRemoteDevice(deviceId);
             } else throw new Error("no deviceId or email specified");
         } else {
@@ -175,4 +177,7 @@ const args = yargs
     .command(new RemoteCommand())
     .help(true).argv;
 
-run(args);
+// run(args);
+
+const startTime = DateTime.local(2019, 5, 22, 16, 17);
+postSchedules(["37e"], startTime);

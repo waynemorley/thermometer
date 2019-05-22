@@ -166,7 +166,8 @@ export class HealthCheck {
 
         const fwVersion = (state["firmwareVersion"] as any).value as string;
         const isLatestFw = fwVersion === latestFw;
-        if (!isLatestFw) throw new Error("device FW invalid");
+        console.log(`latest fw? ${isLatestFw}`);
+        // if (!isLatestFw) throw new Error("device FW invalid");
     }
 
     public async waitReady() {
