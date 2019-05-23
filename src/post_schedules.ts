@@ -62,6 +62,8 @@ export async function postSchedules(SNs: string[], startTime: DateTime) {
         devices[SN] = deviceId;
     }
 
+    console.log(devices);
+
     for (const deviceId of Object.values(devices)) {
         await setSchedule(kelvinApi, deviceId, startTime);
         console.log(`Just set schedule for ${deviceId}`);

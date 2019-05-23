@@ -179,5 +179,5 @@ const args = yargs
 
 // run(args);
 
-const startTime = DateTime.local(2019, 5, 22, 16, 17);
-postSchedules(["37e"], startTime);
+const startTime = DateTime.local(2019, 5, 23, 10, 10, 0);
+postSchedules(["a92"], startTime);
