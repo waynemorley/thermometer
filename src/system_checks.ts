@@ -165,8 +165,8 @@ export class HealthCheck {
         if (!isOnline) throw new Error("device offline");
 
         const fwVersion = (state["firmwareVersion"] as any).value as string;
-        const isNewFw = fwVersion === latestFw;
-        if (!isNewFw) throw new Error("device FW invalid");
+        const isLatestFw = fwVersion === latestFw;
+        if (!isLatestFw) throw new Error("device FW invalid");
     }
 
     public async waitReady() {
