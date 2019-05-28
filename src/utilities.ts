@@ -5,7 +5,7 @@ const clientApi = new ClientApi({
     token: { token: "cf9371ebd99a44bfa8ce6c521045d7b2-99f976f3935fec39d5e1890e5eec12f6", type: "session" }
 });
 
-export async function getId(email: string): Promise<string> {
+export async function getDeviceId(email: string): Promise<string> {
     try {
         const user = await clientApi.userGet(email);
         return user.devices[0];

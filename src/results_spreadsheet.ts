@@ -17,7 +17,7 @@ export default class ResultsSpreadsheet {
         return await this.spreadsheet.findRowByValue(values, deviceSerial);
     }
 
-    private getRowValues(endSn: string, testResult: string) {
+    private getRowValues(endSn: string, deviceId: string, testResult: string) {
         const now = DateTime.local();
         const values = [
             [
@@ -26,7 +26,7 @@ export default class ResultsSpreadsheet {
                 "", // expected end of test (old)
                 endSn,
                 "", // SKU
-                "", // dev ID
+                deviceId, // dev ID
                 "", // pair ID
                 "", // todo: pass in "retriesLeft" here
                 testResult,
@@ -38,9 +38,9 @@ export default class ResultsSpreadsheet {
         return values;
     }
 
-    public async addTestResults(deviceSerial: string, testResult: string) {
+    public async addTestResults(deviceSerial: string, deviceId: string, testResult: string) {
         const endSn = deviceSerial.substring(deviceSerial.length, deviceSerial.length - 3);
-        const values = this.getRowValues(endSn, testResult);
+        const values = this.getRowValues(endSn, deviceId, testResult);
 
         const args: WriteArgs = {
             spreadsheetId: ResultsSpreadsheet.sheetId,

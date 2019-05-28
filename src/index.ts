@@ -9,7 +9,7 @@ import GoogleSheets from "./google_sheets";
 import ResultsSpreadsheet from "./results_spreadsheet";
 import { UbuntuNM } from "./ubuntu_nm";
 import { Promises } from "@eight/promises";
-import { retry, getId, isValid } from "./utilities";
+import { retry, getDeviceId, isValid } from "./utilities";
 import * as yargs from "yargs";
 import { RemoteCommand } from "./remote_command";
 
@@ -79,20 +79,25 @@ async function pairAndGetDeviceId() {
     }
 }
 
-async function testDevice(deviceId: string, serialNumber: string, resultsSpreadsheet: ResultsSpreadsheet) {
+async function testDevice(
+    deviceId: string,
+    serialNumber: string,
+    resultsSpreadsheet: ResultsSpreadsheet,
+    primeOnly: boolean
+) {
     try {
         passedSerials.set(serialNumber, false);
 
         const deviceApi = new DeviceApi({ timeout: 5 * 1000 });
         const kelvinApi = new KelvinApi({ timeout: 5 * 1000 });
-        const healthCheck = new HealthCheck(serialNumber, deviceId, deviceApi, kelvinApi);
+        const healthCheck = new HealthCheck(serialNumber, deviceId, deviceApi, kelvinApi, primeOnly);
         const passed = await healthCheck.run();
         if (passed) {
             passedSerials.set(serialNumber, true);
-            await resultsSpreadsheet.addTestResults(serialNumber, "PASS");
+            await resultsSpreadsheet.addTestResults(serialNumber, deviceId, "PASS");
         } else {
             passedSerials.delete(serialNumber);
-            await resultsSpreadsheet.addTestResults(serialNumber, "FAIL");
+            await resultsSpreadsheet.addTestResults(serialNumber, deviceId, "FAIL");
         }
     } catch (err) {
         console.log("FAIL", err);
@@ -104,7 +109,7 @@ async function testRemoteDevice(deviceId: string) {
     try {
         const deviceApi = new DeviceApi({ timeout: 5 * 1000 });
         const kelvinApi = new KelvinApi({ timeout: 5 * 1000 });
-        const healthCheck = new HealthCheck(deviceId, deviceId, deviceApi, kelvinApi);
+        const healthCheck = new HealthCheck(deviceId, deviceId, deviceApi, kelvinApi, false);
         const passed = await healthCheck.run();
         console.log(`Device ${deviceId}: ${passed ? "passed" : "failed"}`);
     } catch (err) {
@@ -124,21 +129,21 @@ async function run(args: any) {
     const command = args._[0];
     try {
         if (command === "remote") {
-            if ("deviceId" in args && isValid(args.deviceId, "[[A-Fa-f0-9]{24}")) {
-                await testRemoteDevice(args.deviceId);
-            } else if ("email" in args && isValid(args.email, "^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+.[a-zA-Z0-9-.]+$")) {
-                const deviceId = await getId(args.email);
-                await testRemoteDevice(deviceId);
-            } else throw new Error("no deviceId or email specified");
+            let deviceId = args.deviceId;
+            if (isValid(args.email, "^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+.[a-zA-Z0-9-.]+$"))
+                deviceId = await getDeviceId(args.email);
+            await testRemoteDevice(deviceId);
         } else {
-            runTest(args.wifi);
+            runTest(args);
         }
     } catch (error) {
         console.log(error);
     }
 }
 
-async function runTest(autoWifi: boolean) {
+async function runTest(args: any) {
+    const autoWifi = args.wifi;
+    const primeOnly = args.prime;
     const int = createInterface({ input: process.stdin, output: process.stdout, terminal: false });
 
     const googleSheets = await GoogleSheets.getFromCredentials();
@@ -161,7 +166,7 @@ async function runTest(autoWifi: boolean) {
             continue;
         }
         const deviceId = await pairAndGetDeviceId();
-        testDevice(deviceId, serialNumber, resultsSpreadsheet);
+        testDevice(deviceId, serialNumber, resultsSpreadsheet, primeOnly);
     }
 }
 
@@ -172,7 +177,19 @@ const args = yargs
         alias: "w",
         default: false
     })
-    .command(new RemoteCommand())
+    .option("long", {
+        boolean: true,
+        alias: "l",
+        describe: "run long thermal performance test for mat (4.5 hours)",
+        default: false
+    })
+    .option("prime", {
+        boolean: true,
+        alias: "p",
+        describe: "prime only",
+        default: false
+    })
+    .command("remote <deviceId|email>", "runs remote healthcheck on online device")
     .help(true).argv;
 
 run(args);

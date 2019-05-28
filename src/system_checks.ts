@@ -29,7 +29,8 @@ export class HealthCheck {
         private readonly serialNumber: string,
         private readonly deviceId: string,
         private readonly deviceApi: DeviceApi,
-        private readonly kelvinApi: KelvinApi
+        private readonly kelvinApi: KelvinApi,
+        private readonly primeOnly: boolean
     ) {}
 
     private log(message: string) {
@@ -177,7 +178,7 @@ export class HealthCheck {
         await retry(() => this.deviceApi.callFunction(this.deviceId, name, true), { timeoutMs: twoMinutes });
     }
 
-    public async primeSequence() {
+    public async primeSequence(): Promise<boolean> {
         this.log("Beginning short prime sequence. Priming for 2 minutes...");
         try {
             await this.callFunction("prime");
@@ -200,10 +201,14 @@ export class HealthCheck {
 
             await Promises.wait(20 * 1000);
 
+            return true;
+
             // TODO: check current and voltage of pumps in kibana
         } catch (error) {
             this.log(`Prime sequence stopped due to error ${error}`);
         }
+
+        return false;
     }
 
     private tecPass(...deltas: number[]) {
@@ -295,7 +300,11 @@ export class HealthCheck {
         while (retries > 0 && !testPass) {
             try {
                 retries--;
-                testPass = await this.runCheck();
+                if (this.primeOnly) {
+                    testPass = await this.primeSequence();
+                } else {
+                    testPass = await this.runCheck();
+                }
                 if (testPass) break;
             } catch (err) {
                 this.log("ERROR " + err);
