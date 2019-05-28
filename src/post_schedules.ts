@@ -2,8 +2,8 @@ import { KelvinApi, StateEvent } from "@eight/practices";
 import { retry, getDeviceId } from "./utilities";
 import { DateTime } from "luxon";
 
-function getKelvinEvents(startTime: DateTime) {
-    // 3 hours of max cooling + 1.5 hours max heating
+function getFullThermalEvents(startTime: DateTime) {
+    // 3 hours of max cooling + 1.5 hours max heating 
     const stateEvents: StateEvent[] = [
         {
             time: startTime.toJSDate(),
@@ -19,12 +19,12 @@ function getKelvinEvents(startTime: DateTime) {
             }
         },
         {
-            time: startTime.plus({ hours: 3 }).toJSDate(),
+            time: startTime.plus({ minutes: 35 }).toJSDate(),
             type: "temperatureControl",
             operation: "on"
         },
         {
-            time: startTime.plus({ hours: 3 }).toJSDate(),
+            time: startTime.plus({ minutes: 35 }).toJSDate(),
             type: "temperatureControl",
             operation: "temperature",
             data: {
@@ -32,7 +32,7 @@ function getKelvinEvents(startTime: DateTime) {
             }
         },
         {
-            time: startTime.plus({ hours: 3 + 1.5 }).toJSDate(),
+            time: startTime.plus({ minutes: 35 + 45 }).toJSDate(),
             type: "temperatureControl",
             operation: "off"
         }
@@ -43,7 +43,7 @@ function getKelvinEvents(startTime: DateTime) {
 async function setSchedule(kelvinApi: KelvinApi, deviceId: string, startTime: DateTime) {
     await retry(
         async () => {
-            const stateEvents = getKelvinEvents(startTime);
+            const stateEvents = getFullThermalEvents(startTime);
             await kelvinApi.putSideStateEvents(deviceId, "left", stateEvents);
             await kelvinApi.putSideStateEvents(deviceId, "right", stateEvents);
         },

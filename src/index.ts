@@ -81,14 +81,26 @@ async function pairAndGetDeviceId() {
     }
 }
 
-async function testDevice(deviceId: string, serialNumber: string, resultsSpreadsheet: ResultsSpreadsheet) {
+async function testDevice(
+    deviceId: string,
+    serialNumber: string,
+    resultsSpreadsheet: ResultsSpreadsheet,
+    fullThermal?: boolean
+) {
     try {
         passedSerials.set(serialNumber, false);
 
         const deviceApi = new DeviceApi({ timeout: 5 * 1000 });
         const kelvinApi = new KelvinApi({ timeout: 5 * 1000 });
-        const healthCheck = new HealthCheck(serialNumber, deviceId, deviceApi, kelvinApi);
-        const passed = await healthCheck.run();
+        let passed = false;
+        if (fullThermal) {
+            const healthCheck = new HealthCheck(serialNumber, deviceId, deviceApi, kelvinApi);
+            passed = await healthCheck.run();
+        } else {
+            const healthCheck = new HealthCheck(serialNumber, deviceId, deviceApi, kelvinApi);
+            passed = await healthCheck.run();
+        }
+
         if (passed) {
             passedSerials.set(serialNumber, true);
             await resultsSpreadsheet.addTestResults(serialNumber, "PASS");
@@ -126,12 +138,10 @@ async function run(args: any) {
     const command = args._[0];
     try {
         if (command === "remote") {
-            if ("deviceId" in args && isValid(args.deviceId, "[[A-Fa-f0-9]{24}")) {
-                await testRemoteDevice(args.deviceId);
-            } else if ("email" in args && isValid(args.email, "^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+.[a-zA-Z0-9-.]+$")) {
-                const deviceId = await getDeviceId(args.email);
-                await testRemoteDevice(deviceId);
-            } else throw new Error("no deviceId or email specified");
+            let deviceId = args.deviceId;
+            if (isValid(args.email, "^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+.[a-zA-Z0-9-.]+$"))
+                deviceId = await getDeviceId(args.email);
+            await testRemoteDevice(deviceId);
         } else {
             runTest(args.wifi);
         }
@@ -163,6 +173,7 @@ async function runTest(autoWifi: boolean) {
             continue;
         }
         const deviceId = await pairAndGetDeviceId();
+
         testDevice(deviceId, serialNumber, resultsSpreadsheet);
     }
 }
@@ -174,10 +185,16 @@ const args = yargs
         alias: "w",
         default: false
     })
-    .command(new RemoteCommand())
+    .option("full", {
+        boolean: true,
+        alias: "f",
+        describe: "run full thermal performance test (4.5 hours)",
+        default: false
+    })
+    .command("remote <deviceId|email>", "runs remote healthcheck on online device")
     .help(true).argv;
 
 // run(args);
 
-const startTime = DateTime.local(2019, 5, 23, 10, 10, 0);
-postSchedules(["a92"], startTime);
+const startTime = DateTime.local(2019, 5, 24, 10, 40, 0);
+postSchedules(["4ec"], startTime);
