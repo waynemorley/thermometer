@@ -271,9 +271,10 @@ export class HealthCheck {
 
     private async runCheck(primeOnly: boolean): Promise<boolean> {
         try {
-            this.log(
-                `Running health check (priming pumps & thermal performance) on dev ${this.deviceId}. Checking online...`
-            );
+            const msg = primeOnly
+                ? "Running quick prime"
+                : "Running health check (priming pumps & thermal performance)";
+            this.log(`${msg} on dev ${this.deviceId}. Checking online...`);
             await this.waitReady();
 
             const startTime = Math.floor(DateTime.local().valueOf() / 1000.0);
