@@ -12,8 +12,8 @@ import { Promises } from "@eight/promises";
 import { retry, getDeviceId, isValid } from "./utilities";
 import * as yargs from "yargs";
 import { RemoteCommand } from "./remote_command";
-import { postSchedules } from "./post_schedules";
 import { DateTime } from "luxon";
+import { postSchedules } from "./post_schedules";
 
 const device = new Device();
 
@@ -85,28 +85,21 @@ async function testDevice(
     deviceId: string,
     serialNumber: string,
     resultsSpreadsheet: ResultsSpreadsheet,
-    fullThermal?: boolean
+    primeOnly: boolean
 ) {
     try {
         passedSerials.set(serialNumber, false);
 
         const deviceApi = new DeviceApi({ timeout: 5 * 1000 });
         const kelvinApi = new KelvinApi({ timeout: 5 * 1000 });
-        let passed = false;
-        if (fullThermal) {
-            const healthCheck = new HealthCheck(serialNumber, deviceId, deviceApi, kelvinApi);
-            passed = await healthCheck.run();
-        } else {
-            const healthCheck = new HealthCheck(serialNumber, deviceId, deviceApi, kelvinApi);
-            passed = await healthCheck.run();
-        }
-
+        const healthCheck = new HealthCheck(serialNumber, deviceId, deviceApi, kelvinApi, primeOnly);
+        const passed = await healthCheck.run();
         if (passed) {
             passedSerials.set(serialNumber, true);
-            await resultsSpreadsheet.addTestResults(serialNumber, "PASS");
+            await resultsSpreadsheet.addTestResults(serialNumber, deviceId, "PASS");
         } else {
             passedSerials.delete(serialNumber);
-            await resultsSpreadsheet.addTestResults(serialNumber, "FAIL");
+            await resultsSpreadsheet.addTestResults(serialNumber, deviceId, "FAIL");
         }
     } catch (err) {
         console.log("FAIL", err);
@@ -118,7 +111,7 @@ async function testRemoteDevice(deviceId: string) {
     try {
         const deviceApi = new DeviceApi({ timeout: 5 * 1000 });
         const kelvinApi = new KelvinApi({ timeout: 5 * 1000 });
-        const healthCheck = new HealthCheck(deviceId, deviceId, deviceApi, kelvinApi);
+        const healthCheck = new HealthCheck(deviceId, deviceId, deviceApi, kelvinApi, false);
         const passed = await healthCheck.run();
         console.log(`Device ${deviceId}: ${passed ? "passed" : "failed"}`);
     } catch (err) {
@@ -134,23 +127,46 @@ function isValidSerial(text: string) {
     return text.length > 5;
 }
 
+async function pairDevice() {
+    const int = createInterface({ input: process.stdin, output: process.stdout, terminal: false });
+    const googleSheets = await GoogleSheets.getFromCredentials();
+    const resultsSheet = await googleSheets.getSpreadsheet(ResultsSpreadsheet.sheetId);
+    // @ts-ignore
+    const resultsSpreadsheet = new ResultsSpreadsheet(resultsSheet);
+
+    const serialNumber = await readLine(int);
+    if (!isValidSerial(serialNumber)) {
+        console.log("invalid serial");
+        return;
+    }
+    const deviceId = await pairAndGetDeviceId();
+    console.log(`${serialNumber}: device id ${deviceId}`);
+
+    // TODO: upload SN<>deviceId results to spreadsheet
+}
+
 async function run(args: any) {
     const command = args._[0];
     try {
         if (command === "remote") {
             let deviceId = args.deviceId;
-            if (isValid(args.email, "^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+.[a-zA-Z0-9-.]+$"))
+            if (isValid(args.email, "^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+.[a-zA-Z0-9-.]+$")) {
                 deviceId = await getDeviceId(args.email);
+            }
             await testRemoteDevice(deviceId);
+        } else if (args.pair) {
+            await pairDevice();
         } else {
-            runTest(args.wifi);
+            runTest(args);
         }
     } catch (error) {
         console.log(error);
     }
 }
 
-async function runTest(autoWifi: boolean) {
+async function runTest(args: any) {
+    const autoWifi = args.wifi;
+    const primeOnly = args.prime;
     const int = createInterface({ input: process.stdin, output: process.stdout, terminal: false });
 
     const googleSheets = await GoogleSheets.getFromCredentials();
@@ -173,28 +189,38 @@ async function runTest(autoWifi: boolean) {
             continue;
         }
         const deviceId = await pairAndGetDeviceId();
-
-        testDevice(deviceId, serialNumber, resultsSpreadsheet);
+        testDevice(deviceId, serialNumber, resultsSpreadsheet, primeOnly);
     }
 }
 
 const args = yargs
     .strict()
+    .command(new RemoteCommand())
     .option("wifi", {
         boolean: true,
         alias: "w",
         default: false
     })
-    .option("full", {
+    .option("long", {
         boolean: true,
-        alias: "f",
-        describe: "run full thermal performance test (4.5 hours)",
+        alias: "l",
+        describe: "run long thermal performance test for mat (4.5 hours)",
         default: false
     })
-    .command("remote <deviceId|email>", "runs remote healthcheck on online device")
+    .option("prime", {
+        boolean: true,
+        alias: "p",
+        describe: "prime only",
+        default: false
+    })
+    .option("pair", {
+        boolean: true,
+        alias: "r",
+        describe: "pair only",
+        default: false
+    })
     .help(true).argv;
 
-// run(args);
-
-const startTime = DateTime.local(2019, 5, 24, 10, 40, 0);
+run(args);
+const startTime = DateTime.local(2019, 5, 28, 14, 43, 0);
 postSchedules(["4ec"], startTime);

@@ -29,7 +29,8 @@ export class HealthCheck {
         private readonly serialNumber: string,
         private readonly deviceId: string,
         private readonly deviceApi: DeviceApi,
-        private readonly kelvinApi: KelvinApi
+        private readonly kelvinApi: KelvinApi,
+        private readonly primeOnly: boolean
     ) {}
 
     private log(message: string) {
@@ -158,7 +159,7 @@ export class HealthCheck {
     }
 
     private async assertReady() {
-        const latestFw = "2.2.22.0";
+        const latestFw = "2.2.24.0";
         const state = await this.deviceApi.getState(this.deviceId);
         const lastHeard = DateTime.fromISO((state["lastHeard"] as any).value as string).toJSDate();
         const isOnline = DateTime.utc().diff(DateTime.fromJSDate(lastHeard), "minutes").minutes < 2;
@@ -166,8 +167,7 @@ export class HealthCheck {
 
         const fwVersion = (state["firmwareVersion"] as any).value as string;
         const isLatestFw = fwVersion === latestFw;
-        console.log(`latest fw? ${isLatestFw}`);
-        // if (!isLatestFw) throw new Error("device FW invalid");
+        if (!isLatestFw) throw new Error("device FW invalid");
     }
 
     public async waitReady() {
@@ -178,7 +178,7 @@ export class HealthCheck {
         await retry(() => this.deviceApi.callFunction(this.deviceId, name, true), { timeoutMs: twoMinutes });
     }
 
-    public async primeSequence() {
+    public async primeSequence(): Promise<boolean> {
         this.log("Beginning short prime sequence. Priming for 2 minutes...");
         try {
             await this.callFunction("prime");
@@ -201,10 +201,14 @@ export class HealthCheck {
 
             await Promises.wait(20 * 1000);
 
+            return true;
+
             // TODO: check current and voltage of pumps in kibana
         } catch (error) {
             this.log(`Prime sequence stopped due to error ${error}`);
         }
+
+        return false;
     }
 
     private tecPass(...deltas: number[]) {
@@ -265,17 +269,19 @@ export class HealthCheck {
         return this.tecPass(coolingLeftdT, coolingRightdT, heatingLeftdT, heatingRightdT);
     }
 
-    private async runCheck(): Promise<boolean> {
+    private async runCheck(primeOnly: boolean): Promise<boolean> {
         try {
-            this.log(
-                `Running health check (priming pumps & thermal performance) on dev ${this.deviceId}. Checking online...`
-            );
+            const msg = primeOnly
+                ? "Running quick prime"
+                : "Running health check (priming pumps & thermal performance)";
+            this.log(`${msg} on dev ${this.deviceId}. Checking online...`);
             await this.waitReady();
 
             const startTime = Math.floor(DateTime.local().valueOf() / 1000.0);
             const initialTemps = await this.getTemps();
             this.log(`Initial temps: ${JSON.stringify(initialTemps)}`);
-            await this.primeSequence();
+            const primed = await this.primeSequence();
+            if (primeOnly) return primed;
 
             await this.waitReady();
             const tecPass = await this.tecTest();
@@ -296,7 +302,7 @@ export class HealthCheck {
         while (retries > 0 && !testPass) {
             try {
                 retries--;
-                testPass = await this.runCheck();
+                testPass = await this.runCheck(this.primeOnly);
                 if (testPass) break;
             } catch (err) {
                 this.log("ERROR " + err);
