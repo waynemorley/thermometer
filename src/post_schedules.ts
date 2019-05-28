@@ -54,7 +54,7 @@ async function setSchedule(kelvinApi: KelvinApi, deviceId: string, startTime: Da
 export async function postSchedules(SNs: string[], startTime: DateTime) {
     const kelvinApi = new KelvinApi({ timeout: 5 * 1000 });
 
-    let devices: { [serial: string]: string } = {};
+    const devices: { [serial: string]: string } = {};
 
     for (const SN of SNs) {
         const email = `mp${SN}@eightsleep.com`;
@@ -62,10 +62,9 @@ export async function postSchedules(SNs: string[], startTime: DateTime) {
         devices[SN] = deviceId;
     }
 
-    console.log(devices);
-    devices = { ["466"]: "340036000d504b3546323220" };
+    let deviceIds = Object.values(devices);
 
-    for (const deviceId of Object.values(devices)) {
+    for (const deviceId of deviceIds) {
         await setSchedule(kelvinApi, deviceId, startTime);
         console.log(`Just set schedule for ${deviceId}`);
     }
