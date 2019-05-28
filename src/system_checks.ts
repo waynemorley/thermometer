@@ -269,7 +269,7 @@ export class HealthCheck {
         return this.tecPass(coolingLeftdT, coolingRightdT, heatingLeftdT, heatingRightdT);
     }
 
-    private async runCheck(): Promise<boolean> {
+    private async runCheck(primeOnly: boolean): Promise<boolean> {
         try {
             this.log(
                 `Running health check (priming pumps & thermal performance) on dev ${this.deviceId}. Checking online...`
@@ -279,7 +279,8 @@ export class HealthCheck {
             const startTime = Math.floor(DateTime.local().valueOf() / 1000.0);
             const initialTemps = await this.getTemps();
             this.log(`Initial temps: ${JSON.stringify(initialTemps)}`);
-            await this.primeSequence();
+            const primed = await this.primeSequence();
+            if (primeOnly) return primed;
 
             await this.waitReady();
             const tecPass = await this.tecTest();
@@ -300,11 +301,7 @@ export class HealthCheck {
         while (retries > 0 && !testPass) {
             try {
                 retries--;
-                if (this.primeOnly) {
-                    testPass = await this.primeSequence();
-                } else {
-                    testPass = await this.runCheck();
-                }
+                testPass = await this.runCheck(this.primeOnly);
                 if (testPass) break;
             } catch (err) {
                 this.log("ERROR " + err);

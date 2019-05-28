@@ -125,6 +125,24 @@ function isValidSerial(text: string) {
     return text.length > 5;
 }
 
+async function pairDevice() {
+    const int = createInterface({ input: process.stdin, output: process.stdout, terminal: false });
+    const googleSheets = await GoogleSheets.getFromCredentials();
+    const resultsSheet = await googleSheets.getSpreadsheet(ResultsSpreadsheet.sheetId);
+    // @ts-ignore
+    const resultsSpreadsheet = new ResultsSpreadsheet(resultsSheet);
+
+    const serialNumber = await readLine(int);
+    if (!isValidSerial(serialNumber)) {
+        console.log("invalid serial");
+        return;
+    }
+    const deviceId = await pairAndGetDeviceId();
+    console.log(`${serialNumber}: device id ${deviceId}`);
+
+    // TODO: upload SN<>deviceId results to spreadsheet
+}
+
 async function run(args: any) {
     const command = args._[0];
     try {
@@ -133,6 +151,8 @@ async function run(args: any) {
             if (isValid(args.email, "^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+.[a-zA-Z0-9-.]+$"))
                 deviceId = await getDeviceId(args.email);
             await testRemoteDevice(deviceId);
+        } else if (args.pair) {
+            await pairDevice();
         } else {
             runTest(args);
         }
@@ -187,6 +207,12 @@ const args = yargs
         boolean: true,
         alias: "p",
         describe: "prime only",
+        default: false
+    })
+    .option("pair", {
+        boolean: true,
+        alias: "r",
+        describe: "pair only",
         default: false
     })
     .command("remote <deviceId|email>", "runs remote healthcheck on online device")
