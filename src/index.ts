@@ -148,8 +148,9 @@ async function run(args: any) {
     try {
         if (command === "remote") {
             let deviceId = args.deviceId;
-            if (isValid(args.email, "^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+.[a-zA-Z0-9-.]+$"))
+            if (isValid(args.email, "^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+.[a-zA-Z0-9-.]+$")) {
                 deviceId = await getDeviceId(args.email);
+            }
             await testRemoteDevice(deviceId);
         } else if (args.pair) {
             await pairDevice();
@@ -192,6 +193,7 @@ async function runTest(args: any) {
 
 const args = yargs
     .strict()
+    .command(new RemoteCommand())
     .option("wifi", {
         boolean: true,
         alias: "w",
@@ -215,7 +217,6 @@ const args = yargs
         describe: "pair only",
         default: false
     })
-    .command("remote <deviceId|email>", "runs remote healthcheck on online device")
     .help(true).argv;
 
 run(args);
