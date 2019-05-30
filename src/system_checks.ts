@@ -99,7 +99,7 @@ export class HealthCheck {
                 }
             },
             {
-                time: startTime.plus({ seconds: 60 + 30 + 60 }).toJSDate(),
+                time: startTime.plus({ seconds: 60 + 30 + 120 }).toJSDate(),
                 type: "temperatureControl",
                 operation: "off"
             }
@@ -151,7 +151,7 @@ export class HealthCheck {
     }
 
     private formatdT(delta: number) {
-        if (delta < 2) {
+        if (delta < 7) {
             return colors.red(`${delta.toFixed(2)}`);
         } else {
             return colors.green(`${delta.toFixed(2)}`);
@@ -213,7 +213,7 @@ export class HealthCheck {
 
     private tecPass(...deltas: number[]) {
         for (const delta of deltas) {
-            if (delta < 2) return false;
+            if (delta < 7) return false;
         }
         return true;
     }
