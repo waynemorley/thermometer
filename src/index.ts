@@ -221,6 +221,6 @@ const args = yargs
     })
     .help(true).argv;
 
-run(args);
-const startTime = DateTime.local(2019, 5, 28, 14, 43, 0);
+// run(args);
+const startTime = DateTime.local(2019, 5, 29, 16, 12, 0);
 postSchedules(["4ec"], startTime);

@@ -18,21 +18,71 @@ function getFullThermalEvents(startTime: DateTime) {
                 value: -100
             }
         },
-        // {
-        //     time: startTime.plus({ minutes: 35 }).toJSDate(),
-        //     type: "temperatureControl",
-        //     operation: "on"
-        // },
-        // {
-        //     time: startTime.plus({ minutes: 35 }).toJSDate(),
-        //     type: "temperatureControl",
-        //     operation: "temperature",
-        //     data: {
-        //         value: 100
-        //     }
-        // },
         {
-            time: startTime.plus({ minutes: 60 }).toJSDate(),
+            time: startTime.plus({ minutes: 30 }).toJSDate(),
+            type: "temperatureControl",
+            operation: "on"
+        },
+        {
+            time: startTime.plus({ minutes: 30 }).toJSDate(),
+            type: "temperatureControl",
+            operation: "temperature",
+            data: {
+                value: 100
+            }
+        },
+        {
+            time: startTime.plus({ minutes: 30 + 30 }).toJSDate(),
+            type: "temperatureControl",
+            operation: "off"
+        }
+    ];
+    return stateEvents;
+}
+
+function getMaxCoolEvents(startTime: DateTime) {
+    // 1 hour max cooling
+    const stateEvents: StateEvent[] = [
+        {
+            time: startTime.toJSDate(),
+            type: "temperatureControl",
+            operation: "on"
+        },
+        {
+            time: startTime.toJSDate(),
+            type: "temperatureControl",
+            operation: "temperature",
+            data: {
+                value: -100
+            }
+        },
+        {
+            time: startTime.plus({ hours: 1 }).toJSDate(),
+            type: "temperatureControl",
+            operation: "off"
+        }
+    ];
+    return stateEvents;
+}
+
+function getMaxHeatEvents(startTime: DateTime) {
+    // 3 hours of max cooling + 1.5 hours max heating
+    const stateEvents: StateEvent[] = [
+        {
+            time: startTime.toJSDate(),
+            type: "temperatureControl",
+            operation: "on"
+        },
+        {
+            time: startTime.toJSDate(),
+            type: "temperatureControl",
+            operation: "temperature",
+            data: {
+                value: 100
+            }
+        },
+        {
+            time: startTime.plus({ hours: 1 }).toJSDate(),
             type: "temperatureControl",
             operation: "off"
         }
@@ -63,6 +113,7 @@ export async function postSchedules(SNs: string[], startTime: DateTime) {
     }
 
     let deviceIds = Object.values(devices);
+    deviceIds = ["1e001d001847373531373933"];
 
     for (const deviceId of deviceIds) {
         await setSchedule(kelvinApi, deviceId, startTime);
