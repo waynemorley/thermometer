@@ -18,7 +18,7 @@ export async function getDeviceId(email: string): Promise<string> {
 export function isValid(str: string, r: string): boolean {
     const m = str.match(new RegExp(r));
     const valid = m ? true : false;
-    if (!valid) throw new Error("invalid option");
+    // if (!valid) throw new Error("invalid option");
     return valid;
 }
 

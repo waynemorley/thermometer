@@ -139,11 +139,11 @@ export default class GoogleSheets {
         });
 
         console.log(`Authorize this app by visiting this url: ${authUrl}`);
-        const code = await new Promise(function(resolve) {
+        const code = (await new Promise(function(resolve) {
             rl.question("Enter the code from that page here: ", name => {
                 resolve(name);
             });
-        });
+        })) as any;
 
         const newToken = (await oAuth2Client.getToken(code.toString())) as any;
         await fs.writeFileSync(TOKEN_PATH, JSON.stringify(newToken));
