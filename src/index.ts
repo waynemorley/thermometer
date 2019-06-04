@@ -143,25 +143,6 @@ async function pairDevice() {
     // TODO: upload SN<>deviceId results to spreadsheet
 }
 
-async function run(args: any) {
-    const command = args._[0];
-    try {
-        if (command === "remote") {
-            let deviceId = args.deviceId;
-            if (isValid(args.email, "^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+.[a-zA-Z0-9-.]+$")) {
-                deviceId = await getDeviceId(args.email);
-            }
-            await testRemoteDevice(deviceId);
-        } else if (args.pair) {
-            await pairDevice();
-        } else {
-            runTest(args);
-        }
-    } catch (error) {
-        console.log(error);
-    }
-}
-
 async function runTest(args: any) {
     const autoWifi = args.wifi;
     const primeOnly = args.prime;
@@ -188,6 +169,25 @@ async function runTest(args: any) {
         }
         const deviceId = await pairAndGetDeviceId();
         testDevice(deviceId, serialNumber, resultsSpreadsheet, primeOnly);
+    }
+}
+
+async function run(args: any) {
+    const command = args._[0];
+    try {
+        if (command === "remote") {
+            let deviceId = args.deviceId;
+            if (isValid(args.email, "^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+.[a-zA-Z0-9-.]+$")) {
+                deviceId = await getDeviceId(args.email);
+            }
+            await testRemoteDevice(deviceId);
+        } else if (args.pair) {
+            await pairDevice();
+        } else {
+            runTest(args);
+        }
+    } catch (error) {
+        console.log(error);
     }
 }
 
