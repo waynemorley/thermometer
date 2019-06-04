@@ -6,7 +6,7 @@
 3. Build the code: `npm run build`
 4. Run and view available options: `node build/index.js --help`
 
-## Default Mode
+### Default Mode
 If you run `node build/index.js` without any options, the default mode of this program is optimized for in-house hub QC. The process is:
 1. Set up hubs for QC with full reservoirs and water loops. The laptop running thermometer must also be connected to the Eight VPN.
 2. Plug one hub in and ensure it is in pairing mode. Note the pairing ID that it broadcasts: "EIGHT-XXXX"
