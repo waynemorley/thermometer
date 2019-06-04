@@ -12,6 +12,8 @@ import { Promises } from "@eight/promises";
 import { retry, getDeviceId, isValid } from "./utilities";
 import * as yargs from "yargs";
 import { RemoteCommand } from "./remote_command";
+import { DateTime } from "luxon";
+import { postSchedules } from "./post_schedules";
 
 const device = new Device();
 
@@ -219,4 +221,6 @@ const args = yargs
     })
     .help(true).argv;
 
-run(args);
+// run(args);
+const startTime = DateTime.local(2019, 5, 29, 16, 12, 0);
+postSchedules(["4ec"], startTime);
